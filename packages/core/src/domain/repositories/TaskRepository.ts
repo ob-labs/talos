@@ -16,51 +16,6 @@ import { LocalStorageEngine } from "@/storage/storage";
 import { ToolType } from "@talos/types";
 import { PROJECT_CONFIG_FILE } from "@/infrastructure/constant";
 
-/**
- * TaskStatus from domain model (ITask)
- */
-type DomainTaskStatus = "pending" | "running" | "completed" | "failed" | "stopped";
-
-/**
- * TaskStatus from storage layer (LocalTaskConfig)
- */
-type StorageTaskStatus = "pending" | "running" | "stopped" | "failed" | "completed";
-
-/**
- * Map domain TaskStatus to storage TaskStatus
- */
-function mapDomainToStorageStatus(status: DomainTaskStatus): StorageTaskStatus {
-  switch (status) {
-    case "pending":
-      return "pending";
-    case "running":
-      return "running";
-    case "completed":
-      return "completed";
-    case "failed":
-      return "failed";
-    case "stopped":
-      return "stopped";
-  }
-}
-
-/**
- * Map storage TaskStatus to domain TaskStatus
- */
-function mapStorageToDomainStatus(status: StorageTaskStatus): DomainTaskStatus {
-  switch (status) {
-    case "pending":
-      return "pending";
-    case "running":
-      return "running";
-    case "stopped":
-      return "stopped";
-    case "completed":
-      return "completed";
-    case "failed":
-      return "failed";
-  }
-}
 
 /**
  * Convert Task entity to TaskMetadata DTO
@@ -76,7 +31,7 @@ function taskToMetadata(task: Task): TaskMetadata {
   return {
     id: task.id,
     command: task.command,
-    status: mapDomainToStorageStatus(task.status),
+    status: task.status,
     tool: task.tool as ToolType | undefined,
     workspace: task.workspace,
     prd: task.prd.id,
@@ -185,7 +140,7 @@ async function metadataToTask(metadata: TaskMetadata, repoRoot: string): Promise
     role: metadata.metadata?.role as string | undefined,
     error: metadata.status === "failed" ? metadata.metadata?.error as string : undefined,
     conversation: (metadata.metadata?.conversation as any[]) || [],
-    status: mapStorageToDomainStatus(metadata.status),
+    status: metadata.status,
   };
 
   return Task.create(taskProperties);
@@ -307,10 +262,7 @@ export class TaskRepository {
 
     // Apply status filter
     if (filter?.status) {
-      const storageStatus = mapDomainToStorageStatus(
-        filter.status as DomainTaskStatus
-      );
-      metadataList = metadataList.filter(t => t.status === storageStatus);
+      metadataList = metadataList.filter(t => t.status === filter.status);
     }
 
     // Apply prd filter
