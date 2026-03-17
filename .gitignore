@@ -1,0 +1,89 @@
+# Dependencies
+node_modules/
+
+# Build outputs (compiled code)
+dist/
+*.tsbuildinfo
+
+# Compiled files in src directories (should not happen, but ignore if they do)
+**/src/*.js
+**/src/*.js.map
+**/src/*.d.ts
+**/src/*.d.ts.map
+
+# Next.js build output
+.next/
+out/
+packages/web/standalone/
+
+# Turbo cache
+.turbo/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Local data storage (runtime generated)
+data/
+
+# Progress log (runtime generated)
+progress.txt
+
+# Ralph script runtime state
+ralph/*/
+archive/
+
+# Git worktrees (temporary working directories)
+worktrees/
+
+# Debug logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.cursor/*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test temp files
+test-progress.txt
+test-*.txt
+*.test.log
+
+# Vitest
+coverage/
+
+# Temp directories
+var/
+tmp/
+
+# Backup and temporary files
+*.backup
+*.bak
+*.fixbackup
+*.old
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.json
+
+.agents/
+.pnpm-store/
+
+# Talos runtime data
+.talos/
+
+# Test files
+ralph-test/
+

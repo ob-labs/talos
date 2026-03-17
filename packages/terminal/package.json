@@ -1,0 +1,51 @@
+{
+  "name": "@talos/terminal",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "echo \"No linting configured\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests configured\"",
+    "clean": "rm -rf dist"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "format": [
+      "esm"
+    ],
+    "dts": true,
+    "clean": true,
+    "treeshake": true,
+    "splitting": false,
+    "sourcemap": true,
+    "outDir": "dist",
+    "external": [
+      "@talos/*",
+      "ws",
+      "node:*"
+    ]
+  },
+  "dependencies": {
+    "@talos/types": "workspace:*",
+    "@talos/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.7.2",
+    "ws": "^8.19.0"
+  }
+}

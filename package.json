@@ -1,0 +1,40 @@
+{
+  "name": "talos",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "concurrently -n \"packages,web\" -c \"cyan.dim,green.bold\" --prefix \"[{name}]\" --prefix-length 10 \"pnpm run dev:packages\" \"pnpm run dev:web\"",
+    "dev:packages": "pnpm --filter './packages/**' --parallel exec npm run dev",
+    "dev:web": "pnpm --filter './apps/web' run dev",
+    "build": "turbo run build",
+    "start": "cd apps/web && NODE_ENV=production tsx server.ts",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "typecheck:watch": "tsc --build --watch",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:cli": "vitest run --config=vitest.cli.config.ts",
+    "test:all": "vitest run && pnpm run test:cli",
+    "test:ui": "cd apps/web && vitest --ui",
+    "clean": "turbo run clean && rm -rf node_modules .turbo packages/*/dist",
+    "cli:build": "cd packages/cli && pnpm run build",
+    "cli:link": "pnpm run cli:build && pnpm link --global",
+    "cli:unlink": "cd packages/cli && pnpm unlink --global",
+    "publish": "pnpm run cli:build && cd packages/cli && pnpm publish --access public"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.3",
+    "@types/node": "^22.10.5",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.17.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsup": "^8.4.0",
+    "tsx": "^4.21.0",
+    "turbo": "^2.8.12",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}

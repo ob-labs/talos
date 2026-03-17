@@ -1,0 +1,65 @@
+{
+  "name": "@talos/cli",
+  "version": "0.0.1",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Talos CLI tool for managing development workflows",
+  "bin": {
+    "talos": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup && node scripts/copy-skills.mjs",
+    "dev": "tsup --watch",
+    "lint": "echo \"No linting configured\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@kwsites/file-exists": "^1.1.1",
+    "@kwsites/promise-deferred": "^1.1.1",
+    "commander": "^13.1.0",
+    "ink": "^6.8.0",
+    "open": "^11.0.0",
+    "prompts": "^2.4.2",
+    "react": "^19.0.0",
+    "simple-git": "^3.32.3"
+  },
+  "optionalDependencies": {
+    "@talos/core": "^0.0.1",
+    "@talos/web": "^0.0.1"
+  },
+  "devDependencies": {
+    "@esbuild-plugins/tsconfig-paths": "^0.1.2",
+    "@talos/core": "workspace:*",
+    "@talos/git": "workspace:*",
+    "@talos/types": "workspace:*",
+    "@talos/web": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.19.13",
+    "@types/prompts": "^2.4.9",
+    "@types/react": "^19.0.6",
+    "ink-testing-library": "^4.0.0",
+    "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "package.json"
+  ]
+}

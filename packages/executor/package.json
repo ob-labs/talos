@@ -1,0 +1,50 @@
+{
+  "name": "@talos/executor",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./ralph-cli": {
+      "types": "./dist/ralph-cli.d.ts",
+      "import": "./dist/ralph-cli.js",
+      "default": "./dist/ralph-cli.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "echo \"No linting configured\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests configured\"",
+    "clean": "rm -rf dist"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts",
+      "src/ralph-cli.ts"
+    ],
+    "format": [
+      "esm"
+    ],
+    "dts": true,
+    "clean": true,
+    "treeshake": true,
+    "splitting": false,
+    "sourcemap": true,
+    "outDir": "dist"
+  },
+  "dependencies": {
+    "@talos/types": "workspace:*",
+    "@talos/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "5.7.2"
+  }
+}

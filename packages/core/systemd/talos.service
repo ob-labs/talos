@@ -1,0 +1,27 @@
+[Unit]
+Description=Talos AI Agent Process Manager
+Documentation=https://github.com/yourusername/talos
+After=network.target
+
+[Service]
+Type=forking
+# Talos will daemonize itself and create a PID file
+# Users can start Talos with: talos start
+ExecStart=/usr/bin/talos start --silent
+ExecStop=/usr/bin/talos stop
+PIDFile=%h/.talos/talos.pid
+Restart=on-failure
+RestartSec=10s
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=%h/.talos
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,36 @@
+{
+  "name": "@talos/logger",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "format": ["esm"],
+    "dts": true,
+    "clean": true,
+    "treeshake": true,
+    "sourcemap": true,
+    "outDir": "dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

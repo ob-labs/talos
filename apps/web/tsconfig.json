@@ -1,0 +1,102 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "preserve",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@talos/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@talos/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@talos/core/storage": [
+        "../../packages/core/src/storage/storage.ts"
+      ],
+      "@talos/git": [
+        "../../packages/git/src/index.ts"
+      ],
+      "@talos/terminal": [
+        "../../packages/terminal/src/index.ts"
+      ],
+      "@/domain/*": [
+        "../../packages/core/src/domain/*"
+      ],
+      "@/domain/entities/*": [
+        "../../packages/core/src/domain/entities/*"
+      ],
+      "@/domain/repositories/*": [
+        "../../packages/core/src/domain/repositories/*"
+      ],
+      "@/repositories/*": [
+        "../../packages/core/src/repositories/*"
+      ],
+      "@/infrastructure/*": [
+        "../../packages/core/src/infrastructure/*"
+      ],
+      "@/infrastructure/communication/*": [
+        "../../packages/core/src/infrastructure/communication/*"
+      ],
+      "@/infrastructure/constant": [
+        "../../packages/core/src/infrastructure/constant.ts"
+      ],
+      "@/infrastructure/process/*": [
+        "../../packages/core/src/infrastructure/process/*"
+      ],
+      "@/application/*": [
+        "../../packages/core/src/application/*"
+      ],
+      "@/storage/*": [
+        "../../packages/core/src/storage/*"
+      ],
+      "@/process/*": [
+        "../../packages/core/src/process/*"
+      ],
+      "@/logger/*": [
+        "../../packages/core/src/logger/*"
+      ]
+    },
+    "allowJs": true,
+    "isolatedModules": true,
+    "incremental": true
+  },
+  "references": [
+    {
+      "path": "../../packages/types"
+    },
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/git"
+    },
+    {
+      "path": "../../packages/terminal"
+    }
+  ],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

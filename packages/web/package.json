@@ -1,0 +1,35 @@
+{
+  "name": "@talos/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Talos Web UI Server Package",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "standalone"],
+  "scripts": {
+    "build": "pnpm build:next && pnpm build:wrapper",
+    "build:next": "cd ../../apps/web && pnpm build",
+    "build:wrapper": "tsup && node scripts/copy-standalone.mjs",
+    "dev": "tsx ../../apps/web/server.ts"
+  },
+  "dependencies": {
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.13",
+    "fs-extra": "^11.2.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2"
+  }
+}

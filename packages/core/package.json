@@ -1,0 +1,68 @@
+{
+  "name": "@talos/core",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "talos-daemon": "./dist/entry.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/storage.d.ts",
+      "import": "./dist/storage/storage.js",
+      "require": "./dist/storage/storage.js",
+      "default": "./dist/storage/storage.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup && node scripts/copy-skill.mjs",
+    "dev": "tsup --watch",
+    "lint": "echo \"No linting configured\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts",
+      "src/entry.ts",
+      "src/storage/storage.ts"
+    ],
+    "format": [
+      "esm"
+    ],
+    "dts": true,
+    "clean": true,
+    "treeshake": true,
+    "splitting": false,
+    "sourcemap": true,
+    "outDir": "dist",
+    "external": [
+      "@talos/*",
+      "simple-git",
+      "tinyexec",
+      "chokidar",
+      "socket:*",
+      "node:*"
+    ]
+  },
+  "dependencies": {
+    "@talos/types": "workspace:*",
+    "@talos/git": "workspace:*",
+    "@talos/logger": "workspace:*",
+    "@talos/executor": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  },
+  "type": "module"
+}
