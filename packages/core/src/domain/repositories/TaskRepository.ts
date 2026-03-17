@@ -344,6 +344,7 @@ export class TaskRepository {
    * Optionally filter by status or PRD ID
    *
    * Note: Returned tasks will have PRD entity loaded.
+   * Tasks with missing PRDs are skipped with a warning logged.
    *
    * @param filter - Optional filter criteria
    * @returns Array of task entities
@@ -366,9 +367,16 @@ export class TaskRepository {
     }
 
     // Convert metadata to entities (load PRD for each)
+    // Skip tasks with missing PRDs to avoid failing entire list
     const tasks: Task[] = [];
     for (const metadata of metadataList) {
-      tasks.push(await metadataToTask(metadata, this.repoRoot));
+      try {
+        tasks.push(await metadataToTask(metadata, this.repoRoot));
+      } catch (error) {
+        // Log warning and skip tasks with missing PRDs
+        const prdId = metadata.metadata?.prdId as string || metadata.prd;
+        console.warn(`Skipping task ${metadata.id}: PRD '${prdId}' not found - ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
 
     // Apply remaining filters that operate on domain model
