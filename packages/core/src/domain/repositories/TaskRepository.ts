@@ -8,29 +8,6 @@
  * - Only accepts complete Task entities (no partial updates)
  * - Converts between Task entity and TaskMetadata DTO
  * - Uses LocalStorageEngine directly for file I/O (no intermediate layer)
- * - Maps TaskStatus between domain model (ITask) and storage format
- *
- * STATUS MAPPING:
- * - pending → stopped (not yet started in storage layer)
- * - in_progress → running
- * - completed → completed
- * - failed → failed
- * - stopped → stopped
- *
- * @example
- * ```typescript
- * const repository = new TaskRepository('/path/to/repo');
- *
- * // Save complete task (PRD entity must be loaded first)
- * const task = Task.create({ id: 'task-1', title: 'Test', prd: prdEntity, ... });
- * await repository.save(task);
- *
- * // Find by ID (returns task without PRD entity, must load separately)
- * const found = await repository.findById('task-1');
- *
- * // Find with filters
- * const running = await repository.findAll({ status: 'in_progress' });
- * ```
  */
 
 import type { ITask, TaskFilter as ITaskFilter } from "@talos/types";
@@ -219,24 +196,6 @@ async function metadataToTask(metadata: TaskMetadata, repoRoot: string): Promise
   return Task.create(taskProperties);
 }
 
-/**
- * TaskRepository - Repository implementation for Task entities
- *
- * Implements ITaskRepository interface using LocalStorageEngine directly.
- * This removes the intermediate LocalTaskConfig layer, simplifying the architecture.
- *
- * IMPORTANT: TaskRepository now only handles TaskMetadata DTO.
- * PRD entity must be loaded separately via TaskLifecycleManager.
- *
- * - save(): Accepts Task entity with or without PRD, saves PRD ID to storage
- * - findById(): Returns Task entity WITHOUT PRD (must load separately)
- * - findAll(): Returns Task entities WITHOUT PRD (must load separately)
- *
- * This design ensures:
- * 1. Task entity can have PRD entity when created (via TaskLifecycleManager)
- * 2. Storage only stores PRD ID (not full entity)
- * 3. No circular dependencies between Task and PRD repositories
- */
 export class TaskRepository {
   private storage: LocalStorageEngine;
   private configPath: string;
@@ -322,8 +281,6 @@ export class TaskRepository {
 
   /**
    * Find task by ID
-   *
-   * Note: Returned task will have PRD entity loaded.
    *
    * @param taskId - Task identifier
    * @returns Task entity or null if not found
