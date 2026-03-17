@@ -4,6 +4,19 @@
 
 Talos 是一个基于 Ralph 的 CLI 工具，支持在 Claude Code、Cursor cli 下运行。它支持你并行的在多个仓库下、执行多个 Ralph Loop 任务。
 
+## 安装
+
+```bash
+# 全局安装
+npm install -g talos-cli
+
+# 或使用 pnpm
+pnpm add -g talos-cli
+
+# 或使用 npx（无需安装）
+npx talos-cli
+```
+
 ![Task Monitor](images/task-monitor.png)
 
 ## 快速开始
