@@ -6,6 +6,19 @@ Talos is a CLI tool based on Ralph that supports running under Claude Code and C
 
 ![Task Monitor](docs/images/task-monitor.png)
 
+## Installation
+
+```bash
+# Install globally
+npm install -g talos-cli
+
+# Or using pnpm
+pnpm add -g talos-cli
+
+# Or using npx (no installation required)
+npx talos-cli
+```
+
 ## Quick Start
 
 ### 1. Add Workspace
