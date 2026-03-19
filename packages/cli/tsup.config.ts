@@ -72,5 +72,16 @@ export default defineConfig({
     } else {
       console.warn(`Warning: ${ralphCliPath} not found. Ralph executor may not work.`);
     }
+
+    // Copy skill.md for ralph-cli
+    const skillMdPath = join(process.cwd(), '../executor/dist/skill.md');
+    const skillDestPath = join(distPath, 'skill.md');
+
+    if (existsSync(skillMdPath)) {
+      copyFileSync(skillMdPath, skillDestPath);
+      console.log('Copied skill.md to dist/skill.md');
+    } else {
+      console.warn(`Warning: ${skillMdPath} not found. Ralph executor may not work correctly.`);
+    }
   },
 });
