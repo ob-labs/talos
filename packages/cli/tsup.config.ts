@@ -1,4 +1,9 @@
 import { defineConfig } from "tsup";
+import { copyFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   entry: ["src/index.ts"],
@@ -9,7 +14,7 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   outDir: "dist",
-  // Don't auto-externalize dependencies
+  // Bundle all @talos/* packages
   noExternal: [/^@talos\//],
   external: [
     "commander",
@@ -24,7 +29,6 @@ export default defineConfig({
     "@kwsites/promise-deferred",
   ],
   async onSuccess() {
-    // Replace @/ aliases with relative paths in built files
     const { promises } = await import('fs');
     const { join } = await import('path');
     const distPath = join(process.cwd(), 'dist');
@@ -45,6 +49,28 @@ export default defineConfig({
         .replace(/from ['"]\/config\//g, 'from "./config/');
 
       await promises.writeFile(filePath, content);
+    }
+
+    // Copy daemon entry file from @talos/core
+    const coreDistPath = join(process.cwd(), '../core/dist/entry.js');
+    const daemonDestPath = join(distPath, 'daemon-entry.js');
+
+    if (existsSync(coreDistPath)) {
+      copyFileSync(coreDistPath, daemonDestPath);
+      console.log('Copied daemon entry file to dist/daemon-entry.js');
+    } else {
+      console.warn(`Warning: ${coreDistPath} not found. Daemon may not work correctly.`);
+    }
+
+    // Copy ralph-cli entry file from @talos/executor
+    const ralphCliPath = join(process.cwd(), '../executor/dist/ralph-cli.js');
+    const ralphDestPath = join(distPath, 'ralph-cli.js');
+
+    if (existsSync(ralphCliPath)) {
+      copyFileSync(ralphCliPath, ralphDestPath);
+      console.log('Copied ralph-cli.js to dist/ralph-cli.js');
+    } else {
+      console.warn(`Warning: ${ralphCliPath} not found. Ralph executor may not work.`);
     }
   },
 });

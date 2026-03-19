@@ -350,7 +350,9 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
     logPath: string,
     options: { debug?: boolean; tool?: string }
   ): Promise<number> {
-    const ralphCliPath = require.resolve("@talos/executor/ralph-cli");
+    // Use env var if set (bundled mode), otherwise resolve from workspace
+    const ralphCliPath = process.env.TALOS_RALPH_CLI_PATH
+      || require.resolve("@talos/executor/ralph-cli");
     const cleanedEnv = this.getCleanedEnv();
 
     const config = {

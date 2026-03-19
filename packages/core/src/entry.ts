@@ -20,6 +20,18 @@ import { Logger } from "./logger";
 import { WorkspaceRepository } from "./repositories/workspace-repository";
 import { homedir } from "os";
 import path from "path";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import { existsSync } from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Set up ralph-cli path for bundled mode
+const ralphCliPath = join(__dirname, 'ralph-cli.js');
+if (existsSync(ralphCliPath)) {
+  process.env.TALOS_RALPH_CLI_PATH = ralphCliPath;
+}
 
 async function main() {
   // Create Talos instance with dependency injection

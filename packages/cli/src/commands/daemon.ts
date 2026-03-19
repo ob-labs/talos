@@ -10,14 +10,12 @@ import path from "path";
 import os from "os";
 import { spawn } from "child_process";
 import fs from "fs/promises";
-import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { TalosClient } from "../client/TalosClient";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const require = createRequire(import.meta.url);
 
 const TALOS_DIR = ".talos";
 const DAEMON_PID_PATH = path.join(os.homedir(), TALOS_DIR, "talos.pid");
@@ -28,8 +26,9 @@ const DAEMON_SOCK_PATH = path.join(os.homedir(), TALOS_DIR, "talos.sock");
  * Start Talos daemon
  */
 export async function startCommand(): Promise<void> {
-  const coreIndexPath = require.resolve("@talos/core");
-  const daemonEntryPath = coreIndexPath.replace("/dist/index.js", "/dist/entry.js");
+  // daemon-entry.js is copied to dist/ during build
+  // In bundled mode, __dirname is dist/, same as daemon-entry.js
+  const daemonEntryPath = path.join(__dirname, 'daemon-entry.js');
 
   const logStream = await fs.open(DAEMON_LOG_PATH, "a");
   const daemonProcess = spawn(process.execPath, [daemonEntryPath], {

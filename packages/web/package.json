@@ -1,6 +1,6 @@
 {
   "name": "@talos/web",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "private": true,
   "description": "Talos Web UI Server Package",
   "type": "module",
@@ -13,7 +13,10 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "standalone"],
+  "files": [
+    "dist",
+    "standalone"
+  ],
   "scripts": {
     "build": "pnpm build:next && pnpm build:wrapper",
     "build:next": "cd ../../apps/web && pnpm build",

@@ -10,7 +10,6 @@ import childProcess from "child_process";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
-import { createRequire } from 'module';
 import { ProcessManager } from "@talos/core";
 import { LocalStorageEngine } from "@talos/core/storage";
 
@@ -70,10 +69,9 @@ export async function startTalosCommand(silent: boolean = false): Promise<void> 
     const storage = new LocalStorageEngine(storageBasePath);
     // LocalStorageEngine will automatically create directory
 
-    // Get the path to the Talos entry point
-    const require = createRequire(import.meta.url);
-    const coreIndexPath = require.resolve('@talos/core');
-    const talosEntryPath = coreIndexPath.replace('/dist/index.js', '/dist/entry.js');
+    // daemon-entry.js is copied to dist/ during build
+    // In bundled mode, __dirname is dist/, same as daemon-entry.js
+    const talosEntryPath = path.join(__dirname, 'daemon-entry.js');
 
     // Redirect stdout and stderr to log file
     const logStream = await fs.open(TALOS_LOG_PATH, "a");
