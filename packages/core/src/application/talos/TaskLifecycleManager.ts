@@ -37,6 +37,7 @@ interface TaskInfo {
   };
   workspace?: {
     path: string;
+    name: string;
   };
 }
 
@@ -110,6 +111,7 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
             },
             workspace: {
               path: ws.path,
+              name: ws.name,
             },
           };
         }
@@ -302,7 +304,9 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
     }
 
     // Extract PRD ID from task ID (format: workspaceName-prdId)
-    const prdId = processId.includes('-') ? processId.split('-').slice(1).join('-') : processId;
+    // Use workspace name to precisely extract PRD ID (handles workspace names with hyphens)
+    const prefix = `${workspace.name}-`;
+    const prdId = processId.startsWith(prefix) ? processId.slice(prefix.length) : processId;
     const prd = await this.loadPRD(workspace.path, prdId);
     this.logger.info(`📖 PRD loaded for resume: ${prdId}`);
 
