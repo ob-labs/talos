@@ -14,9 +14,12 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   outDir: "dist",
-  // Bundle all @talos/* packages
-  noExternal: [/^@talos\//],
+  // Externalize @talos packages to allow runtime require.resolve()
+  // This is needed for daemon/talos commands that need to find entry paths
   external: [
+    "@talos/core",
+    "@talos/types",
+    "@talos/git",
     "commander",
     "prompts",
     "node:*",

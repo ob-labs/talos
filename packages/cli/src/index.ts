@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
 
 const program = new Command();
 
 program
   .name("talos")
   .description("Talos CLI - AI 辅助开发工作流管理工具")
-  .version("0.1.0");
+  .version(pkg.version);
 
 // ralph 命令 - 通过 Claude Code 对话转换 PRD 为 Ralph 格式（懒加载）
 program
@@ -23,8 +30,12 @@ program
 program
   .command("prd")
   .description("通过 Claude Code 对话创建 PRD")
-  .action(async () => {
-    const { prdCommand } = await import("./commands/prd/index.js");
+  .option("--stream", "启用流式模式（stdio JSON 协议）")
+  .action(async (options: { stream?: boolean }) => {
+    const { prdCommand, prdStreamCommand } = await import("./commands/prd/index.js");
+    if (options.stream) {
+      return prdStreamCommand();
+    }
     return prdCommand();
   });
 
@@ -163,15 +174,64 @@ taskCmd
 
 
 // Talos 主进程管理命令（start, stop, status, logs, restart）
-import { registerTalosCommands } from "./commands/talos/index.js";
+const { registerTalosCommands } = await import("./commands/talos/index.js");
 registerTalosCommands(program);
 
 // Daemon 命令 - 守护进程管理（start, stop, restart, status, logs, health）
-import { registerDaemonCommands } from "./commands/daemon.js";
-registerDaemonCommands(program);
+// Lazy load to avoid require.resolve issues in bundled code
+const daemonCmd = program.command("daemon").description("Manage Talos daemon");
+daemonCmd
+  .command("start")
+  .description("Start Talos daemon")
+  .action(async () => {
+    const { startCommand } = await import("./commands/daemon.js");
+    return startCommand();
+  });
+
+daemonCmd
+  .command("stop")
+  .description("Stop Talos daemon")
+  .action(async () => {
+    const { stopCommand } = await import("./commands/daemon.js");
+    return stopCommand();
+  });
+
+daemonCmd
+  .command("restart")
+  .description("Restart Talos daemon")
+  .action(async () => {
+    const { restartCommand } = await import("./commands/daemon.js");
+    return restartCommand();
+  });
+
+daemonCmd
+  .command("status")
+  .description("Check daemon status")
+  .action(async () => {
+    const { statusCommand } = await import("./commands/daemon.js");
+    return statusCommand();
+  });
+
+daemonCmd
+  .command("logs")
+  .description("Show daemon logs")
+  .option("-f, --follow", "Follow log output")
+  .option("-n, --lines <number>", "Number of lines to show", "50")
+  .action(async (options: { follow?: boolean; lines?: string }) => {
+    const { logsCommand } = await import("./commands/daemon.js");
+    return logsCommand(options.follow, parseInt(options.lines || "50", 10));
+  });
+
+daemonCmd
+  .command("health")
+  .description("Health check")
+  .action(async () => {
+    const { healthCommand } = await import("./commands/daemon.js");
+    return healthCommand();
+  });
 
 // UI 命令 - Web UI 管理（start, stop, status, logs）
-import { registerUICommands } from "./commands/ui/index.js";
+const { registerUICommands } = await import("./commands/ui/index.js");
 registerUICommands(program);
 
 // workspace 命令 - Workspace 管理（包含 add, list 子命令）

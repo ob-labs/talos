@@ -2,7 +2,7 @@
   "name": "talos",
   "version": "0.0.1",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "scripts": {
     "dev": "concurrently -n \"packages,web\" -c \"cyan.dim,green.bold\" --prefix \"[{name}]\" --prefix-length 10 \"pnpm run dev:packages\" \"pnpm run dev:web\"",
     "dev:packages": "pnpm --filter './packages/**' --parallel exec npm run dev",
@@ -19,9 +19,10 @@
     "test:ui": "cd apps/web && vitest --ui",
     "clean": "turbo run clean && rm -rf node_modules .turbo packages/*/dist",
     "cli:build": "cd packages/cli && pnpm run build",
-    "cli:link": "pnpm run cli:build && pnpm link --global",
-    "cli:unlink": "cd packages/cli && pnpm unlink --global",
-    "publish": "pnpm run cli:build && cd packages/cli && pnpm publish --access public"
+    "cli:link": "pnpm run cli:build && pnpm link --global && cd packages/cli && pnpm link --global",
+    "cli:unlink": "pnpm remove --global talos-cli talos",
+    "publish": "pnpm run cli:build && cd packages/cli && pnpm publish --access public",
+    "test:stream": "node test-prd-stream.mjs"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",

@@ -45,6 +45,31 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.19.13)(@vitest/ui@3.2.4)(jiti@1.21.7)(tsx@4.21.0)
 
+  apps/prd-stream-test:
+    dependencies:
+      next:
+        specifier: ^15.1.3
+        version: 15.5.12(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.19.13
+      '@types/react':
+        specifier: ^19
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
+      typescript:
+        specifier: ^5
+        version: 5.7.2
+
   apps/web:
     dependencies:
       '@talos/core':
@@ -4892,7 +4917,7 @@ snapshots:
       '@typescript-eslint/parser': 8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.3(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.3(jiti@1.21.7))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7))
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.3(jiti@1.21.7))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.3(jiti@1.21.7))
       eslint-plugin-react: 7.37.5(eslint@9.39.3(jiti@1.21.7))
@@ -4912,7 +4937,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.3(jiti@1.21.7)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -4927,14 +4952,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.3(jiti@1.21.7)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.3(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.3(jiti@1.21.7))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7))
     transitivePeerDependencies:
       - supports-color
 
@@ -4949,7 +4974,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.3(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.3(jiti@1.21.7))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7)))(eslint@9.39.3(jiti@1.21.7))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3

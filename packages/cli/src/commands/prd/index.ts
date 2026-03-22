@@ -16,18 +16,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
- * prd command main function
+ * Detect and return workspace info
  */
-export async function prdCommand(): Promise<void> {
-  // Get main repository root directory (via GitRepository)
+export async function detectWorkspace(): Promise<{ path: string; name: string }> {
   const cwd = process.cwd();
   const git = new GitRepository(cwd);
   const repoNameResult = await git.getRepoName();
 
   if (!repoNameResult.success || !repoNameResult.data) {
-    console.error('❌ Error: Cannot get repository name');
-    console.error(`Error: ${repoNameResult.error}`);
-    process.exit(1);
+    throw new Error(`Cannot get repository name: ${repoNameResult.error}`);
   }
 
   const repoName = repoNameResult.data;
@@ -37,36 +34,34 @@ export async function prdCommand(): Promise<void> {
   const workspace = await workspaceRepo.findByName(repoName);
 
   if (!workspace) {
-    console.error(`❌ Error: Workspace configuration not found (repoName: ${repoName})`);
-    console.error("Error: Workspace config not found");
-    process.exit(1);
+    throw new Error(`Workspace configuration not found (repoName: ${repoName})`);
   }
 
-  const repoRoot = workspace.path;
+  return { path: workspace.path, name: repoName };
+}
 
-  // 1. Ensure tasks directory exists (in main repository root directory)
-  const tasksDir = join(repoRoot, "tasks");
-  mkdirSync(tasksDir, { recursive: true });
-
-  // 2. Read system prompt
+/**
+ * Load the PRD generator system prompt
+ */
+export function loadSystemPrompt(): string {
   // Note: After bundling, all code is in dist/index.js, so __dirname points to dist/
   // Assets are in dist/assets/ after build
   const assetsDir = join(__dirname, "assets");
   const systemPromptPath = join(assetsDir, "prd-generator.md");
 
-  let systemPrompt: string;
   try {
-    systemPrompt = readFileSync(systemPromptPath, "utf-8");
+    return readFileSync(systemPromptPath, "utf-8");
   } catch (error) {
-    console.error(`Error: Cannot read system prompt file
-
-File path: ${systemPromptPath}
-
-${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
+    throw new Error(
+      `Cannot read system prompt file\n\nFile path: ${systemPromptPath}\n\n${error instanceof Error ? error.message : String(error)}`
+    );
   }
+}
 
-  // 3. Build user message
+/**
+ * Build the task content for Claude Code
+ */
+export function buildTaskContent(systemPrompt: string): string {
   const userMessage = `Please help me create a PRD.
 
 I will describe my requirements in the conversation. Please follow the PRD Generator process in the system prompt:
@@ -76,10 +71,29 @@ I will describe my requirements in the conversation. Please follow the PRD Gener
 
 Let's start!`;
 
-  // 4. Build task content
-  const taskContent = `${systemPrompt}\n\n---\n\n${userMessage}`;
+  return `${systemPrompt}\n\n---\n\n${userMessage}`;
+}
 
-  // 5. Start Claude Code conversation
+/**
+ * Ensure tasks directory exists
+ */
+export function ensureTasksDir(repoRoot: string): string {
+  const tasksDir = join(repoRoot, "tasks");
+  mkdirSync(tasksDir, { recursive: true });
+  return tasksDir;
+}
+
+/**
+ * prd command main function (interactive mode)
+ */
+export async function prdCommand(): Promise<void> {
+  const { path: repoRoot } = await detectWorkspace();
+  ensureTasksDir(repoRoot);
+
+  const systemPrompt = loadSystemPrompt();
+  const taskContent = buildTaskContent(systemPrompt);
+
+  // Start Claude Code conversation
   const { spawn } = await import("child_process");
 
   console.log("Starting Claude Code PRD generator...");
@@ -94,7 +108,7 @@ Let's start!`;
     }
   );
 
-  // 6. Wait for Claude Code to complete and return exit code
+  // Wait for Claude Code to complete and return exit code
   return new Promise((resolve, reject) => {
     claudeProcess.on("close", (code) => {
       if (code === 0) {
@@ -110,4 +124,19 @@ Let's start!`;
       reject(error);
     });
   });
+}
+
+/**
+ * prd command in stream mode (stdio JSON protocol)
+ */
+export async function prdStreamCommand(): Promise<void> {
+  const { path: repoRoot } = await detectWorkspace();
+  ensureTasksDir(repoRoot);
+
+  const systemPrompt = loadSystemPrompt();
+  const taskContent = buildTaskContent(systemPrompt);
+
+  const { PrdStreamHandler } = await import("./stream.js");
+  const handler = new PrdStreamHandler();
+  await handler.start(repoRoot, taskContent);
 }

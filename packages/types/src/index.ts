@@ -1545,7 +1545,8 @@ export type StreamJSONMessageType =
   | "assistant"
   | "user"
   | "tool_result"
-  | "result";
+  | "result"
+  | "system";
 
 /**
  * Stream-JSON message content block types
@@ -1622,6 +1623,53 @@ export interface StreamJSONMessage {
 export interface DebugOptions {
   /** Enable debug mode (capture full output) */
   enabled: boolean;
+}
+
+// ============================================================================
+// PRD Stream Protocol Types
+// ============================================================================
+
+/**
+ * PRD Stream Protocol - Message types for talos prd --stream command
+ * For stdio JSON protocol between external apps and talos prd
+ */
+export type PrdStreamMessageType =
+  | "thinking"
+  | "question"
+  | "prd"
+  | "done"
+  | "error"
+  | "cancel";
+
+/**
+ * PRD Stream Protocol - Output message (Talos -> Client)
+ * Each line is a JSON object of this type
+ */
+export interface PrdStreamMessage {
+  type: PrdStreamMessageType;
+  timestamp: string;
+  /** Content for thinking, prd, error message types */
+  content?: string;
+  /** Question ID for question type */
+  questionId?: string;
+  /** Question text for question type */
+  question?: string;
+  /** Options for question type */
+  options?: string[];
+  /** PRD file path for done type */
+  path?: string;
+  /** Additional message for error/cancel types */
+  message?: string;
+}
+
+/**
+ * PRD Stream Protocol - Input message (Client -> Talos)
+ * Client sends JSON lines of this type via stdin
+ */
+export interface PrdStreamInput {
+  type: "input" | "cancel";
+  /** User response content for input type */
+  content?: string;
 }
 
 // Re-export tool types

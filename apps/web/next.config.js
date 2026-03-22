@@ -23,6 +23,7 @@ module.exports = {
       '@talos/core/storage': path.resolve(__dirname, '../../packages/core/src/storage/storage.ts'),
       '@talos/terminal': path.resolve(__dirname, '../../packages/terminal/src/index.ts'),
       '@talos/git': path.resolve(__dirname, '../../packages/git/src/index.ts'),
+      '@talos/executor': path.resolve(__dirname, '../../packages/executor/src/index.ts'),
 
       // Core package internal @/ aliases (needed when resolving source files)
       '@/domain': path.join(coreSrcPath, 'domain'),
@@ -98,7 +99,10 @@ module.exports = {
                request.includes("worker_threads") ||
                request.includes("net") ||
                request.includes("windowsConoutConnection") ||
-               request.includes("windowsPtyAgent"))) {
+               request.includes("windowsPtyAgent") ||
+               // Externalize @talos packages to avoid bundling issues
+               request.includes("@talos/executor") ||
+               request.includes("@talos/logger"))) {
             return callback(null, "commonjs " + request);
           }
           if (typeof originalExternals === 'function') {
