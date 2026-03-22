@@ -65,7 +65,21 @@ export async function listTaskCommand(options: TaskListOptions = {}): Promise<vo
     workspaceName = workspace.name;
   }
 
-  const client = new TalosClient();
+  // Silent logger for JSON mode (logs to stderr to avoid polluting stdout)
+  const silentLogger = {
+    info: (message: string) => {
+      if (!options.json) console.log(`[INFO] ${message}`);
+    },
+    warn: (message: string) => console.warn(`[WARN] ${message}`),
+    error: (message: string) => console.error(`[ERROR] ${message}`),
+    audit: (message: string) => {
+      if (!options.json) console.log(`[AUDIT] ${message}`);
+    },
+    setLevel: (_level: string) => {},
+    getLevel: () => "info" as const,
+  };
+
+  const client = new TalosClient({ logger: silentLogger });
 
   try {
     await client.connect();
