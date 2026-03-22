@@ -96,11 +96,13 @@ export class PrdStreamHandler {
    */
   private async startClaudeSession(initialPrompt: string): Promise<void> {
     // Use --input-format=stream-json for multi-turn conversation
+    // --dangerously-skip-permissions is required for non-interactive mode
     const claude = spawn("claude", [
       "--print",
       "--input-format=stream-json",
       "--output-format=stream-json",
-      "--verbose"
+      "--verbose",
+      "--dangerously-skip-permissions"
     ], {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "inherit"],
