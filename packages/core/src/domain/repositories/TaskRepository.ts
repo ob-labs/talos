@@ -98,12 +98,13 @@ async function metadataToTask(metadata: TaskMetadata, repoRoot: string): Promise
     throw new Error(`Task ${metadata.id} has no PRD ID in metadata`);
   }
 
-  // Load PRD entity from repository
-  const prdRepository = new PRDRepository(repoRoot);
+  // Load PRD entity from worktree (not repoRoot) to get updated userStories
+  // PRD in worktree may have updated passes/stories during task execution
+  const prdRepository = new PRDRepository(worktreePath);
   const prdData = await prdRepository.findById(prdId);
 
   if (!prdData) {
-    throw new Error(`PRD '${prdId}' not found in repository at ${repoRoot}`);
+    throw new Error(`PRD '${prdId}' not found in worktree at ${worktreePath}`);
   }
 
   // Convert to PRD entity
