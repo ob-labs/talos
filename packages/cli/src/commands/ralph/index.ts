@@ -29,7 +29,157 @@ const __dirname = dirname(__filename);
 interface RalphOptions {
   prd?: string[];
   force?: boolean;
+  tool?: string;
+  model?: string;
 }
+
+/**
+ * Context passed to each Ralph tool strategy
+ */
+export interface RalphToolContext {
+  projectRoot: string;
+  taskContent: string;
+  model?: string;
+  spinner: Spinner;
+  identifier: string;
+  ralphDir: string;
+}
+
+/**
+ * Strategy interface for headless PRD conversion tool execution
+ */
+export interface RalphToolStrategy {
+  displayName: string;
+  run(ctx: RalphToolContext): Promise<void>;
+}
+
+/**
+ * Claude Code strategy (stdin pipe mode)
+ */
+const claudeRalphStrategy: RalphToolStrategy = {
+  displayName: 'Claude Code',
+  async run({ projectRoot, taskContent, model, spinner, identifier, ralphDir }) {
+    const args = ['--dangerously-skip-permissions', '--print'];
+    if (model) args.push('--model', model);
+
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+    delete env.CLAUDE_CODE_ENTRYPOINT;
+
+    const proc = spawn('claude', args, {
+      cwd: projectRoot,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let hasOutput = false;
+    const stopSpinnerAndShow = () => {
+      if (!hasOutput) {
+        hasOutput = true;
+        spinner.stop();
+        console.log(`\U0001f916 Claude Code PRD conversion in progress...\n`);
+      }
+    };
+
+    if (proc.stdin) {
+      proc.stdin.write(taskContent);
+      proc.stdin.end();
+    }
+    if (proc.stdout) proc.stdout.on('data', (data) => { stopSpinnerAndShow(); process.stdout.write(data); });
+    if (proc.stderr) proc.stderr.on('data', (data) => { stopSpinnerAndShow(); process.stderr.write(data); });
+
+    return new Promise((resolve, reject) => {
+      proc.on('close', (code) => {
+        spinner.stop();
+        if (code === 0) {
+          console.log('');
+          console.log('\u2705 PRD conversion completed');
+          console.log('');
+          console.log('\U0001f4cb Usage:');
+          console.log(`   cd ${ralphDir}`);
+          console.log(`   talos task start --prd ${identifier}`);
+          resolve();
+        } else {
+          console.error(`\n\u274c Claude Code exited with code: ${code ?? 1}`);
+          process.exit(code ?? 1);
+        }
+      });
+      proc.on('error', (error) => { spinner.stop(); reject(error); });
+    });
+  },
+};
+
+/**
+ * Cursor Agent strategy (temp file + pipe mode)
+ */
+const cursorRalphStrategy: RalphToolStrategy = {
+  displayName: 'Cursor Agent',
+  async run({ projectRoot, taskContent, model, spinner, identifier, ralphDir }) {
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join: pathJoin } = await import('node:path');
+
+    const tempDir = await mkdtemp(pathJoin(tmpdir(), 'talos-ralph-cursor-'));
+    const tempFile = pathJoin(tempDir, 'prompt.txt');
+    await writeFile(tempFile, taskContent, 'utf-8');
+
+    const args = ['--print', '--trust', '--force'];
+    if (model) args.push('--model', model);
+
+    const shellCommand = `cat "${tempFile}" | cursor-agent ${args.join(' ')}`;
+
+    let hasOutput = false;
+    const stopSpinnerAndShow = () => {
+      if (!hasOutput) {
+        hasOutput = true;
+        spinner.stop();
+        console.log(`\U0001f916 Cursor Agent PRD conversion in progress...\n`);
+      }
+    };
+
+    const proc = spawn('sh', ['-c', shellCommand], {
+      cwd: projectRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    if (proc.stdout) proc.stdout.on('data', (data) => { stopSpinnerAndShow(); process.stdout.write(data); });
+    if (proc.stderr) proc.stderr.on('data', (data) => { stopSpinnerAndShow(); process.stderr.write(data); });
+
+    return new Promise((resolve, reject) => {
+      proc.on('close', async (code) => {
+        try { await rm(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        spinner.stop();
+        if (code === 0) {
+          console.log('');
+          console.log('\u2705 PRD conversion completed');
+          console.log('');
+          console.log('\U0001f4cb Usage:');
+          console.log(`   cd ${ralphDir}`);
+          console.log(`   talos task start --prd ${identifier}`);
+          resolve();
+        } else {
+          console.error(`\n\u274c Cursor Agent exited with code: ${code ?? 1}`);
+          console.error('Tip: ensure CURSOR_API_KEY is set, or run `cursor-agent login`.');
+          process.exit(code ?? 1);
+        }
+      });
+      proc.on('error', async (error) => {
+        try { await rm(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        spinner.stop();
+        reject(error);
+      });
+    });
+  },
+};
+
+/**
+ * Registry of all supported Ralph tool strategies.
+ * Add new tools here without touching ralphCommand.
+ */
+const RALPH_TOOL_STRATEGIES: Record<string, RalphToolStrategy> = {
+  claude: claudeRalphStrategy,
+  cursor: cursorRalphStrategy,
+};
 
 /**
  * ralph command main function (headless mode)
@@ -162,80 +312,25 @@ Please save prd.json to (relative path): ${relativePrdJsonPath}
   const taskContent = `${systemPrompt}\n\n---\n\n${userMessage}`;
 
   // Start spinner
-  const spinner = new Spinner('Claude Code is converting your PRD...');
+  const toolName = options.tool || 'claude';
+  const strategy = RALPH_TOOL_STRATEGIES[toolName];
+
+  if (!strategy) {
+    const supported = Object.keys(RALPH_TOOL_STRATEGIES).join(', ');
+    console.error(`❌ Unsupported tool: "${toolName}". Supported tools: ${supported}`);
+    process.exit(1);
+  }
+
+  const spinner = new Spinner(`${strategy.displayName} is converting your PRD...`);
   spinner.start();
 
-  // Clean environment to avoid nested sessions
-  const env = { ...process.env };
-  delete env.CLAUDECODE;
-  delete env.CLAUDE_CODE_ENTRYPOINT;
-
-  const claudeProcess = spawn(
-    'claude',
-    ['--dangerously-skip-permissions', '--print'],
-    {
-      cwd: projectRoot,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }
-  );
-
-  // Track if there's any output
-  let hasOutput = false;
-
-  // Pass task content via stdin
-  if (claudeProcess.stdin) {
-    claudeProcess.stdin.write(taskContent);
-    claudeProcess.stdin.end();
-  }
-
-  // Stop spinner and show output when data arrives
-  const stopSpinnerAndShow = () => {
-    if (!hasOutput) {
-      hasOutput = true;
-      spinner.stop();
-      console.log('🤖 Claude Code PRD conversion in progress...\n');
-    }
-  };
-
-  // Stream Claude Code response in real-time
-  if (claudeProcess.stdout) {
-    claudeProcess.stdout.on('data', (data) => {
-      stopSpinnerAndShow();
-      process.stdout.write(data);
-    });
-  }
-
-  if (claudeProcess.stderr) {
-    claudeProcess.stderr.on('data', (data) => {
-      stopSpinnerAndShow();
-      process.stderr.write(data);
-    });
-  }
-
-  // Wait for Claude Code to complete
-  return new Promise((resolve, reject) => {
-    claudeProcess.on('close', (code) => {
-      if (code === 0) {
-        spinner.stop();
-        console.log('');
-        console.log('✅ PRD conversion completed');
-        console.log('');
-        console.log('📋 Usage:');
-        console.log(`   cd ${ralphDir}`);
-        console.log(`   claude prd.json`);
-        resolve();
-      } else {
-        spinner.stop();
-        console.error(`\n❌ Claude Code exited with code: ${code ?? 1}`);
-        process.exit(code ?? 1);
-      }
-    });
-
-    claudeProcess.on('error', (error) => {
-      spinner.stop();
-      reject(error);
-    });
+  await strategy.run({
+    projectRoot,
+    taskContent,
+    model: options.model,
+    spinner,
+    identifier,
+    ralphDir,
   });
 }
 

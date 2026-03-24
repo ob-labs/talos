@@ -210,6 +210,7 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
       workingDir: actualWorkingDir,
       debug,
       tool,
+      model,
     });
 
     this.logger.info(`✅ Task started: ${taskId}, PID: ${pid}`);
@@ -342,6 +343,7 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
       workingDir: actualWorkingDir,
       debug,
       tool,
+      model,
     });
 
     this.logger.info(`✅ Task resumed: ${processId}`);
@@ -352,7 +354,7 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
     prdId: string,
     workingDir: string,
     logPath: string,
-    options: { debug?: boolean; tool?: string }
+    options: { debug?: boolean; tool?: string; model?: string }
   ): Promise<number> {
     // Use env var if set (bundled mode), otherwise resolve from workspace
     const ralphCliPath = process.env.TALOS_RALPH_CLI_PATH
@@ -366,6 +368,7 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
       tool: options?.tool || "claude",
       logFile: logPath,
       debug: options.debug || false,
+      ...(options.model ? { model: options.model } : {}),
     };
 
     const pid = await this.processManager.register("task", {
@@ -442,6 +445,7 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
       workingDir: string;
       debug?: boolean;
       tool?: string;
+      model?: string;
     }
   ): Promise<number> {
     const logPath = task.getLogPath();
@@ -457,11 +461,15 @@ export class TaskLifecycleManager implements ITaskLifecycleManager {
     if (options.debug) {
       this.logger.info(`    Debug: ${options.debug}`);
     }
+    if (options.model) {
+      this.logger.info(`    Model: ${options.model}`);
+    }
 
     // Spawn process
     const pid = await this.spawnProcess(task.id, prdId, options.workingDir, logPath, {
       debug: options.debug,
       tool: options.tool,
+      model: options.model,
     });
 
     // Verify process is running

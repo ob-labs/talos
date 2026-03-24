@@ -84,52 +84,129 @@ export function ensureTasksDir(repoRoot: string): string {
 }
 
 /**
+ * Options passed to each tool strategy
+ */
+export interface PrdToolOptions {
+  repoRoot: string;
+  taskContent: string;
+  model?: string;
+}
+
+/**
+ * Strategy interface for interactive PRD tool execution
+ */
+export interface PrdToolStrategy {
+  displayName: string;
+  run(options: PrdToolOptions): Promise<void>;
+}
+
+/**
+ * Claude Code strategy
+ */
+const claudeStrategy: PrdToolStrategy = {
+  displayName: "Claude Code",
+  async run({ repoRoot, taskContent, model }) {
+    const { spawn } = await import("child_process");
+    const args = ["--", taskContent];
+    if (model) {
+      args.unshift("--model", model);
+    }
+    const proc = spawn("claude", args, { cwd: repoRoot, stdio: "inherit" });
+    return new Promise((resolve, reject) => {
+      proc.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          console.error(`\nClaude Code exited with code: ${code ?? 1}`);
+          process.exit(code ?? 1);
+        }
+      });
+      proc.on("error", (error) => {
+        console.error(ErrorMessages.UNKNOWN_ERROR(error));
+        reject(error);
+      });
+    });
+  },
+};
+
+/**
+ * Cursor Agent strategy
+ */
+const cursorStrategy: PrdToolStrategy = {
+  displayName: "Cursor Agent",
+  async run({ repoRoot, taskContent, model }) {
+    const { spawn } = await import("child_process");
+
+    const modelTrim = model?.trim();
+    const cursorArgs = ["--workspace", repoRoot];
+    if (modelTrim) {
+      cursorArgs.push("--model", modelTrim);
+    }
+    cursorArgs.push("--", taskContent);
+
+    const proc = spawn("cursor-agent", cursorArgs, {
+      cwd: repoRoot,
+      stdio: "inherit",
+    });
+
+    return new Promise((resolve, reject) => {
+      proc.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          console.error(`\nCursor Agent exited with code: ${code ?? 1}`);
+          console.error(
+            "Tip: ensure CURSOR_API_KEY is set, or run `cursor-agent login` (see docs/CURSOR_AGENT_SETUP.zh-CN.md)."
+          );
+          process.exit(code ?? 1);
+        }
+      });
+      proc.on("error", (error) => {
+        console.error(ErrorMessages.UNKNOWN_ERROR(error));
+        reject(error);
+      });
+    });
+  },
+};
+
+/**
+ * Registry of all supported PRD tool strategies.
+ * Add new tools here without touching prdCommand.
+ */
+const PRD_TOOL_STRATEGIES: Record<string, PrdToolStrategy> = {
+  claude: claudeStrategy,
+  cursor: cursorStrategy,
+};
+
+/**
  * prd command main function (interactive mode)
  */
-export async function prdCommand(): Promise<void> {
+export async function prdCommand(options: { tool?: string; model?: string } = {}): Promise<void> {
   const { path: repoRoot } = await detectWorkspace();
   ensureTasksDir(repoRoot);
 
   const systemPrompt = loadSystemPrompt();
   const taskContent = buildTaskContent(systemPrompt);
 
-  // Start Claude Code conversation
-  const { spawn } = await import("child_process");
+  const toolName = options.tool || "claude";
+  const strategy = PRD_TOOL_STRATEGIES[toolName];
 
-  console.log("Starting Claude Code PRD generator...");
+  if (!strategy) {
+    const supported = Object.keys(PRD_TOOL_STRATEGIES).join(", ");
+    console.error(`✗ Unsupported tool: "${toolName}". Supported tools: ${supported}`);
+    process.exit(1);
+  }
+
+  console.log(`Starting ${strategy.displayName} PRD generator...`);
   console.log("");
 
-  const claudeProcess = spawn(
-    "claude",
-    ["--", taskContent],
-    {
-      cwd: repoRoot,
-      stdio: "inherit",
-    }
-  );
-
-  // Wait for Claude Code to complete and return exit code
-  return new Promise((resolve, reject) => {
-    claudeProcess.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        console.error(`\nClaude Code exited with code: ${code ?? 1}`);
-        process.exit(code ?? 1);
-      }
-    });
-
-    claudeProcess.on("error", (error) => {
-      console.error(ErrorMessages.UNKNOWN_ERROR(error));
-      reject(error);
-    });
-  });
+  await strategy.run({ repoRoot, taskContent, model: options.model });
 }
 
 /**
  * prd command in stream mode (stdio JSON protocol)
  */
-export async function prdStreamCommand(): Promise<void> {
+export async function prdStreamCommand(options: { tool?: string; model?: string } = {}): Promise<void> {
   const { path: repoRoot } = await detectWorkspace();
   ensureTasksDir(repoRoot);
 
@@ -138,5 +215,5 @@ export async function prdStreamCommand(): Promise<void> {
 
   const { PrdStreamHandler } = await import("./stream.js");
   const handler = new PrdStreamHandler();
-  await handler.start(repoRoot, taskContent);
+  await handler.start(repoRoot, taskContent, options);
 }

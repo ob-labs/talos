@@ -33,6 +33,7 @@ talos workspace add
 
 ```bash
 talos prd
+# 可选：--tool claude|cursor  --model <模型>  （--stream 同样支持这两项）
 ```
 
 ### 3. 转换 PRD
@@ -41,6 +42,7 @@ talos prd
 
 ```bash
 talos ralph --prd my-feature
+# 可选：--tool claude|cursor  --model <模型>
 ```
 
 ### 4. 启动任务
@@ -49,6 +51,28 @@ talos ralph --prd my-feature
 
 ```bash
 talos task start --prd my-feature
+# start / resume 可选：--tool claude|cursor  --model <模型>  [--debug]
+```
+
+## 工具与模型选项
+
+**`talos prd`**、**`talos ralph`**、**`talos task`** 均支持 **`--tool`** 与 **`--model`**，可在 **Claude Code**（默认）与 **Cursor Agent** 之间切换。
+
+| 命令 | 说明 |
+|------|------|
+| `talos prd` | 默认 Claude 交互式；Cursor 为无头 `--print`。带 `--stream` 时，两项作用于 stdio JSON 会话。 |
+| `talos ralph` | 无头转换，两种工具均支持。 |
+| `talos task start` / `resume` | 经守护进程传给 Ralph 执行器。 |
+
+- **`--tool`**：`claude`（默认）或 `cursor`。使用 Cursor 时请配置 `CURSOR_API_KEY` 或执行 `cursor-agent login`（见同目录下 ` CURSOR_AGENT_SETUP.zh-CN.md`）。  
+- **`--model`**：可选模型名（如 `sonnet-4`、`opus`；Cursor 侧常见 `composer-1.5`、`sonnet-4`、`auto`）。
+
+```bash
+talos prd --tool cursor --model auto
+talos prd --stream --tool claude --model sonnet-4
+talos ralph --prd my-feature --tool cursor
+talos task start --prd my-feature --tool claude --model sonnet-4
+talos task resume my-workspace-my-feature --tool cursor --model composer-1.5
 ```
 
 ## 任务运维
