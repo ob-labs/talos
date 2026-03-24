@@ -21,6 +21,7 @@ program
   .description("无头模式的 PRD 转换器")
   .option("--prd <prdFiles...>", "PRD 文件路径（支持多个，支持通配符）")
   .option("--force", "跳过确认")
+  .option("--workspace <name>", "指定 workspace 名称")
   .action(async (options) => {
     const { ralphCommand } = await import("./commands/ralph/index.js");
     return ralphCommand(options);
@@ -31,12 +32,13 @@ program
   .command("prd")
   .description("通过 Claude Code 对话创建 PRD")
   .option("--stream", "启用流式模式（stdio JSON 协议）")
-  .action(async (options: { stream?: boolean }) => {
+  .option("--workspace <name>", "指定 workspace 名称")
+  .action(async (options: { stream?: boolean; workspace?: string }) => {
     const { prdCommand, prdStreamCommand } = await import("./commands/prd/index.js");
     if (options.stream) {
-      return prdStreamCommand();
+      return prdStreamCommand(options);
     }
-    return prdCommand();
+    return prdCommand(options);
   });
 
 // health 命令 - 系统健康检查（懒加载）
@@ -84,7 +86,8 @@ taskCmd
   .option("--tool <tool>", "指定工具 (claude 或 cursor)")
   .option("--debug", "启用调试模式（捕获完整输出）")
   .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
-  .action(async (options: { prd?: string; tool?: string; debug?: boolean; model?: string }) => {
+  .option("--workspace <name>", "指定 workspace 名称")
+  .action(async (options: { prd?: string; tool?: string; debug?: boolean; model?: string; workspace?: string }) => {
     const { startTaskCommand } = await import("./commands/task/start.js");
     return startTaskCommand(options);
   });

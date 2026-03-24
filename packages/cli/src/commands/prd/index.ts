@@ -17,8 +17,21 @@ const __dirname = dirname(__filename);
 
 /**
  * Detect and return workspace info
+ * @param workspaceName - Optional workspace name to use instead of auto-detection
  */
-export async function detectWorkspace(): Promise<{ path: string; name: string }> {
+export async function detectWorkspace(workspaceName?: string): Promise<{ path: string; name: string }> {
+  const workspaceRepo = new WorkspaceRepository();
+
+  if (workspaceName) {
+    // Use provided workspace name
+    const workspace = await workspaceRepo.findByName(workspaceName);
+    if (!workspace) {
+      throw new Error(`Workspace configuration not found (name: ${workspaceName})`);
+    }
+    return { path: workspace.path, name: workspace.name };
+  }
+
+  // Auto-detect workspace from current directory
   const cwd = process.cwd();
   const git = new GitRepository(cwd);
   const repoNameResult = await git.getRepoName();
@@ -30,7 +43,6 @@ export async function detectWorkspace(): Promise<{ path: string; name: string }>
   const repoName = repoNameResult.data;
 
   // Get workspace configuration via repository name (workspace.path is the accurate repoRoot)
-  const workspaceRepo = new WorkspaceRepository();
   const workspace = await workspaceRepo.findByName(repoName);
 
   if (!workspace) {
@@ -84,10 +96,17 @@ export function ensureTasksDir(repoRoot: string): string {
 }
 
 /**
+ * prd command options
+ */
+export interface PrdCommandOptions {
+  workspace?: string;
+}
+
+/**
  * prd command main function (interactive mode)
  */
-export async function prdCommand(): Promise<void> {
-  const { path: repoRoot } = await detectWorkspace();
+export async function prdCommand(options: PrdCommandOptions = {}): Promise<void> {
+  const { path: repoRoot } = await detectWorkspace(options.workspace);
   ensureTasksDir(repoRoot);
 
   const systemPrompt = loadSystemPrompt();
@@ -129,8 +148,8 @@ export async function prdCommand(): Promise<void> {
 /**
  * prd command in stream mode (stdio JSON protocol)
  */
-export async function prdStreamCommand(): Promise<void> {
-  const { path: repoRoot } = await detectWorkspace();
+export async function prdStreamCommand(options: PrdCommandOptions = {}): Promise<void> {
+  const { path: repoRoot } = await detectWorkspace(options.workspace);
   ensureTasksDir(repoRoot);
 
   const systemPrompt = loadSystemPrompt();

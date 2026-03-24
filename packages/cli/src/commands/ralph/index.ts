@@ -29,6 +29,7 @@ const __dirname = dirname(__filename);
 interface RalphOptions {
   prd?: string[];
   force?: boolean;
+  workspace?: string;
 }
 
 /**
@@ -38,31 +39,43 @@ interface RalphOptions {
  * Call ralph-converter.md prompt via Claude Code headless mode
  */
 export async function ralphCommand(options: RalphOptions = {}): Promise<void> {
-  const cwd = process.cwd();
-
-  // Get main repository root directory (via GitRepository)
-  const git = new GitRepository(cwd);
-  const repoNameResult = await git.getRepoName();
-
-  if (!repoNameResult.success || !repoNameResult.data) {
-    console.error('❌ Error: Cannot get repository name');
-    console.error(`Error: ${repoNameResult.error}`);
-    process.exit(1);
-  }
-
-  const repoName = repoNameResult.data;
-
-  // Get workspace configuration via repository name (workspace.path is the accurate repoRoot)
   const workspaceRepo = new WorkspaceRepository();
-  const workspace = await workspaceRepo.findByName(repoName);
+  let projectRoot: string;
 
-  if (!workspace) {
-    console.error(`❌ Error: Workspace configuration not found (repoName: ${repoName})`);
-    console.error("Error: Workspace config not found");
-    process.exit(1);
+  if (options.workspace) {
+    // Use provided workspace name
+    const workspace = await workspaceRepo.findByName(options.workspace);
+    if (!workspace) {
+      console.error(`❌ Error: Workspace configuration not found (name: ${options.workspace})`);
+      console.error("Error: Workspace config not found");
+      process.exit(1);
+    }
+    projectRoot = workspace.path;
+  } else {
+    // Auto-detect workspace from current directory
+    const cwd = process.cwd();
+    const git = new GitRepository(cwd);
+    const repoNameResult = await git.getRepoName();
+
+    if (!repoNameResult.success || !repoNameResult.data) {
+      console.error('❌ Error: Cannot get repository name');
+      console.error(`Error: ${repoNameResult.error}`);
+      process.exit(1);
+    }
+
+    const repoName = repoNameResult.data;
+
+    // Get workspace configuration via repository name (workspace.path is the accurate repoRoot)
+    const workspace = await workspaceRepo.findByName(repoName);
+
+    if (!workspace) {
+      console.error(`❌ Error: Workspace configuration not found (repoName: ${repoName})`);
+      console.error("Error: Workspace config not found");
+      process.exit(1);
+    }
+
+    projectRoot = workspace.path;
   }
-
-  const projectRoot = workspace.path;
 
   // Check if PRD files are provided
   if (!options.prd || options.prd.length === 0) {
