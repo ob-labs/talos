@@ -430,8 +430,8 @@ export class RalphExecutor extends EventEmitter {
    * Build the Claude prompt from skill.md template
    */
   private async buildPrompt(): Promise<string> {
-    // skill.md is copied to dist/skill.md during build
-    const skillMdPath = join(__dirname, "skill.md");
+    // skill.md is copied to dist/assets/skill.md during build
+    const skillMdPath = join(__dirname, "assets", "skill.md");
 
     await this.logInfo(`RalphExecutor.buildPrompt():`);
     await this.logInfo(`  __dirname: ${__dirname}`);
