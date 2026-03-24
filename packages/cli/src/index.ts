@@ -175,6 +175,15 @@ taskCmd
     return clearTaskCommand(options);
   });
 
+taskCmd
+  .command("logs <taskId>")
+  .description("查看任务日志")
+  .option("-f, --follow", "实时跟踪日志输出")
+  .option("-n, --lines <number>", "显示的行数", "50")
+  .action(async (taskId: string, options: { follow?: boolean; lines?: string }) => {
+    const { logsTaskCommand } = await import("./commands/task/logs.js");
+    return logsTaskCommand(taskId, options);
+  });
 
 // Talos 主进程管理命令（start, stop, status, logs, restart）
 const { registerTalosCommands } = await import("./commands/talos/index.js");
