@@ -5,7 +5,7 @@ import { TalosClient } from "@/client/TalosClient";
 import { GitRepository } from "@talos/git";
 import { WorkspaceRepository } from "@talos/core";
 
-export interface TaskStartOptions { prd?: string; tool?: string; debug?: boolean; model?: string; }
+export interface TaskStartOptions { prd?: string; tool?: string; debug?: boolean; model?: string; workspace?: string; }
 
 /**
  * Simple arrow key selector for PRD selection
@@ -67,29 +67,40 @@ function selectPRD(prds: Array<{ name: string; description: string }>): Promise<
 }
 
 export async function startTaskCommand(options: TaskStartOptions): Promise<void> {
-  const cwd = process.cwd();
-
-  // Get main repository root (via GitRepository)
-  const git = new GitRepository(cwd);
-  const repoNameResult = await git.getRepoName();
-
-  if (!repoNameResult.success || !repoNameResult.data) {
-    console.error(`❌ Failed to get repository name: ${repoNameResult.error}`);
-    process.exit(1);
-  }
-
-  const repoName = repoNameResult.data;
-
-  // Get workspace configuration via repository name (workspace.path is the accurate repoRoot)
   const workspaceRepo = new WorkspaceRepository();
-  const workspace = await workspaceRepo.findByName(repoName);
+  let repoRoot: string;
 
-  if (!workspace) {
-    console.error(`❌ Workspace configuration not found (repoName: ${repoName})`);
-    process.exit(1);
+  if (options.workspace) {
+    // Use provided workspace name
+    const workspace = await workspaceRepo.findByName(options.workspace);
+    if (!workspace) {
+      console.error(`❌ Workspace configuration not found (name: ${options.workspace})`);
+      process.exit(1);
+    }
+    repoRoot = workspace.path;
+  } else {
+    // Auto-detect workspace from current directory
+    const cwd = process.cwd();
+    const git = new GitRepository(cwd);
+    const repoNameResult = await git.getRepoName();
+
+    if (!repoNameResult.success || !repoNameResult.data) {
+      console.error(`❌ Failed to get repository name: ${repoNameResult.error}`);
+      process.exit(1);
+    }
+
+    const repoName = repoNameResult.data;
+
+    // Get workspace configuration via repository name (workspace.path is the accurate repoRoot)
+    const workspace = await workspaceRepo.findByName(repoName);
+
+    if (!workspace) {
+      console.error(`❌ Workspace configuration not found (repoName: ${repoName})`);
+      process.exit(1);
+    }
+
+    repoRoot = workspace.path;
   }
-
-  const repoRoot = workspace.path;
 
   let prdName: string;
   if (options.prd) {

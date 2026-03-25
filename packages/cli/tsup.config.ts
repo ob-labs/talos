@@ -77,7 +77,7 @@ export default defineConfig({
     }
 
     // Copy skill.md for ralph-cli to assets directory
-    const skillMdPath = join(process.cwd(), '../executor/dist/skill.md');
+    const skillMdPath = join(process.cwd(), '../executor/dist/assets/skill.md');
     const assetsDir = join(distPath, 'assets');
 
     // Ensure assets directory exists

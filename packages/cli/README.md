@@ -41,6 +41,7 @@ talos task list [--json] [--all]
 
 # Task operations
 talos task attach <taskId> [--follow]
+talos task logs <taskId> [-f] [-n <number>]  # View task logs
 talos task stop <taskId> [--reason <reason>]
 talos task resume <taskId> [--tool <tool>] [--debug] [--model <model>]
 talos task health <taskId> [--json]

@@ -105,6 +105,7 @@ talos health         # System health check
 talos task start [--prd <path>]    # Start task (supports interactive multi-select PRD)
 talos task status [--no-watch]     # View task status (real-time monitoring by default)
 talos task list [--json]           # List all tasks
+talos task logs <taskId> [-f] [-n] # View task logs (-f for follow, -n for line count)
 talos task stop <taskId>           # Stop task
 talos task resume <taskId>         # Resume task
 talos task attach <taskId> [-f]    # Attach to task session (-f for real-time tracking)

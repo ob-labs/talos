@@ -23,6 +23,7 @@ program
   .option("--force", "跳过确认")
   .option("--tool <tool>", "指定工具 (claude 或 cursor)")
   .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
+  .option("--workspace <name>", "指定 workspace 名称")
   .action(async (options) => {
     const { ralphCommand } = await import("./commands/ralph/index.js");
     return ralphCommand(options);
@@ -35,12 +36,13 @@ program
   .option("--stream", "启用流式模式（stdio JSON 协议）")
   .option("--tool <tool>", "指定工具 (claude 或 cursor，stream 模式下有效)")
   .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
-  .action(async (options: { stream?: boolean; tool?: string; model?: string }) => {
+  .option("--workspace <name>", "指定 workspace 名称")
+  .action(async (options: { stream?: boolean; workspace?: string; tool?: string; model?: string }) => {
     const { prdCommand, prdStreamCommand } = await import("./commands/prd/index.js");
     if (options.stream) {
-      return prdStreamCommand({ tool: options.tool, model: options.model });
+      return prdStreamCommand(options);
     }
-    return prdCommand({ tool: options.tool, model: options.model });
+    return prdCommand(options);
   });
 
 // health 命令 - 系统健康检查（懒加载）
@@ -88,7 +90,8 @@ taskCmd
   .option("--tool <tool>", "指定工具 (claude 或 cursor)")
   .option("--debug", "启用调试模式（捕获完整输出）")
   .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
-  .action(async (options: { prd?: string; tool?: string; debug?: boolean; model?: string }) => {
+  .option("--workspace <name>", "指定 workspace 名称")
+  .action(async (options: { prd?: string; tool?: string; debug?: boolean; model?: string; workspace?: string }) => {
     const { startTaskCommand } = await import("./commands/task/start.js");
     return startTaskCommand(options);
   });
@@ -176,6 +179,15 @@ taskCmd
     return clearTaskCommand(options);
   });
 
+taskCmd
+  .command("logs <taskId>")
+  .description("查看任务日志")
+  .option("-f, --follow", "实时跟踪日志输出")
+  .option("-n, --lines <number>", "显示的行数", "50")
+  .action(async (taskId: string, options: { follow?: boolean; lines?: string }) => {
+    const { logsTaskCommand } = await import("./commands/task/logs.js");
+    return logsTaskCommand(taskId, options);
+  });
 
 // Talos 主进程管理命令（start, stop, status, logs, restart）
 const { registerTalosCommands } = await import("./commands/talos/index.js");
