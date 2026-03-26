@@ -413,16 +413,29 @@ export class RalphExecutor extends EventEmitter {
     
     // Execute using the executor
     const result = await executor.execute(request);
-    
+
     await this.logInfo(`[DEBUG] Execution result: success=${result.success}, exitCode=${result.exitCode}`);
     await this.logInfo(`[DEBUG] Output length: ${result.output?.length || 0}, Error length: ${result.error?.length || 0}`);
-    if (result.output) {
-      await this.logInfo(`[DEBUG] Output (first 500 chars): ${result.output.substring(0, Math.min(500, result.output.length))}`);
+
+    // In debug mode, parse and format stream-json output line by line
+    if (this.options.debug && result.output) {
+      const lines = result.output.split('\n');
+      for (const line of lines) {
+        if (line.trim()) {
+          await this.processStreamJSONLine(line);
+        }
+      }
+    } else {
+      // Non-debug mode: just log a preview
+      if (result.output) {
+        await this.logInfo(`[DEBUG] Output (first 500 chars): ${result.output.substring(0, Math.min(500, result.output.length))}`);
+      }
     }
+
     if (result.error) {
       await this.logError(`[DEBUG] Error output: ${result.error.substring(0, 500)}`);
     }
-    
+
     return result.output || result.error || '';
   }
 
