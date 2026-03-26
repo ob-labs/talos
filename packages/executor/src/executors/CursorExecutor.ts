@@ -43,7 +43,7 @@ export class CursorExecutor implements IToolExecutor {
 
   // Idle timeout configuration
   private readonly idleTimeoutDebugMs = 2000; // 2 seconds in debug mode
-  private readonly idleTimeoutNormalMs = 60000; // 60 seconds in normal mode
+  private readonly idleTimeoutNormalMs = 180000; // 3 minutes in normal mode
   private idleCheckInterval: NodeJS.Timeout | null = null;
   private lastOutputTime: number = 0;
 

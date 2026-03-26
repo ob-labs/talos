@@ -21,6 +21,8 @@ program
   .description("无头模式的 PRD 转换器")
   .option("--prd <prdFiles...>", "PRD 文件路径（支持多个，支持通配符）")
   .option("--force", "跳过确认")
+  .option("--tool <tool>", "指定工具 (claude 或 cursor)")
+  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
   .option("--workspace <name>", "指定 workspace 名称")
   .action(async (options) => {
     const { ralphCommand } = await import("./commands/ralph/index.js");
@@ -32,8 +34,10 @@ program
   .command("prd")
   .description("通过 Claude Code 对话创建 PRD")
   .option("--stream", "启用流式模式（stdio JSON 协议）")
+  .option("--tool <tool>", "指定工具 (claude 或 cursor，stream 模式下有效)")
+  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
   .option("--workspace <name>", "指定 workspace 名称")
-  .action(async (options: { stream?: boolean; workspace?: string }) => {
+  .action(async (options: { stream?: boolean; workspace?: string; tool?: string; model?: string }) => {
     const { prdCommand, prdStreamCommand } = await import("./commands/prd/index.js");
     if (options.stream) {
       return prdStreamCommand(options);

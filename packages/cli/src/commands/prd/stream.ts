@@ -55,23 +55,171 @@ class StreamJSONParser {
 }
 
 /**
+ * Context passed to each stream tool strategy
+ */
+export interface PrdStreamToolContext {
+  cwd: string;
+  initialPrompt: string;
+  model?: string;
+  debug?: boolean;
+  /** Forward a message to the client */
+  sendMessage(msg: PrdStreamMessage): void;
+  /** Write user input to the tool's stdin (for multi-turn tools) */
+  setStdin(stdin: NodeJS.WritableStream | null): void;
+}
+
+/**
+ * Strategy interface for stream-mode PRD tool execution
+ */
+export interface PrdStreamToolStrategy {
+  displayName: string;
+  /** Start the session; resolves when the tool exits */
+  start(ctx: PrdStreamToolContext): Promise<void>;
+  /** Forward a user message to the running session (multi-turn) */
+  sendUserInput?(content: string, ctx: PrdStreamToolContext): void;
+}
+
+// ---- Claude stream strategy ----
+const claudeStreamStrategy: PrdStreamToolStrategy = {
+  displayName: "Claude Code",
+  async start(ctx) {
+    const { cwd, initialPrompt, model, debug, sendMessage, setStdin } = ctx;
+    const claudeArgs = [
+      "--print",
+      "--input-format=stream-json",
+      "--output-format=stream-json",
+      "--verbose",
+      "--dangerously-skip-permissions",
+    ];
+    if (model) claudeArgs.push("--model", model);
+
+    const claude = spawn("claude", claudeArgs, {
+      cwd,
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+
+    setStdin(claude.stdin);
+    if (debug) process.stderr.write(`[DEBUG] Spawned Claude PID:${claude.pid} with stream-json I/O\n`);
+
+    const initialMessage = JSON.stringify({
+      type: "user",
+      message: { role: "user", content: [{ type: "text", text: initialPrompt }] },
+    }) + "\n";
+    claude.stdin.write(initialMessage);
+    if (debug) process.stderr.write(`[DEBUG] Sent initial prompt\n`);
+
+    const parser = new StreamJSONParser();
+    claude.stdout.on("data", (data: Buffer) => {
+      const messages = parser.parse(data.toString());
+      for (const msg of messages) {
+        if (msg.type === "system" || msg.type === "result") continue;
+        if (msg.type === "assistant") {
+          sendMessage({ timestamp: new Date().toISOString(), ...msg } as PrdStreamMessage);
+        }
+      }
+    });
+
+    return new Promise<void>((resolve) => {
+      claude.on("close", (code) => {
+        setStdin(null);
+        if (debug) process.stderr.write(`[DEBUG] Claude exited with code:${code}\n`);
+        resolve();
+      });
+      claude.on("error", (error) => {
+        setStdin(null);
+        sendMessage({ type: "error", message: `Failed to spawn Claude: ${error.message}`, timestamp: new Date().toISOString() });
+        resolve();
+      });
+    });
+  },
+  sendUserInput(content, ctx) {
+    // ctx.setStdin is a setter; we need the current stdin value via a closure trick —
+    // PrdStreamHandler exposes it through the context object's setStdin, but we need
+    // a getter too. The handler passes the live ref via the write helper below.
+  },
+};
+
+// ---- Cursor stream strategy ----
+const cursorStreamStrategy: PrdStreamToolStrategy = {
+  displayName: "Cursor Agent",
+  async start(ctx) {
+    const { cwd, initialPrompt, model, sendMessage } = ctx;
+    const args = ["--print", "--trust", "--force"];
+    if (model) args.push("--model", model);
+
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const tempDir = await mkdtemp(join(tmpdir(), "talos-prd-cursor-"));
+    const tempFile = join(tempDir, "prompt.txt");
+    await writeFile(tempFile, initialPrompt, "utf-8");
+
+    const shellCommand = `cat "${tempFile}" | cursor-agent ${args.join(" ")}`;
+    const cursor = spawn("sh", ["-c", shellCommand], {
+      cwd,
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+
+    let stdout = "";
+    cursor.stdout.on("data", (data: Buffer) => { stdout += data.toString(); });
+
+    return new Promise<void>((resolve) => {
+      cursor.on("close", async () => {
+        try { await rm(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        if (stdout.trim()) {
+          sendMessage({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: stdout }] }, timestamp: new Date().toISOString() } as any);
+        }
+        sendMessage({ type: "done" as any, timestamp: new Date().toISOString() } as any);
+        resolve();
+      });
+      cursor.on("error", async (error) => {
+        try { await rm(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        sendMessage({ type: "error", message: `Failed to spawn cursor-agent: ${error.message}`, timestamp: new Date().toISOString() });
+        resolve();
+      });
+    });
+  },
+  // cursor-agent is single-shot; no multi-turn user input forwarding
+};
+
+/**
+ * Registry of all supported PRD stream tool strategies.
+ * Add new tools here without touching PrdStreamHandler.
+ */
+const PRD_STREAM_TOOL_STRATEGIES: Record<string, PrdStreamToolStrategy> = {
+  claude: claudeStreamStrategy,
+  cursor: cursorStreamStrategy,
+};
+
+/**
  * Handles PRD streaming protocol communication
  */
 export class PrdStreamHandler {
   private parser = new StreamJSONParser();
   private debug = process.env.DEBUG === "true";
   private cwd: string = "";
-  private claudeStdin: NodeJS.WritableStream | null = null;
+  private toolStdin: NodeJS.WritableStream | null = null;
+  private toolName: string = "claude";
+  private model: string | undefined = undefined;
 
   /**
    * Start the streaming PRD session
    */
-  async start(cwd: string, prompt: string): Promise<void> {
+  async start(cwd: string, prompt: string, options: { tool?: string; model?: string } = {}): Promise<void> {
     this.cwd = cwd;
-    // Send initial message
+    this.toolName = options.tool || "claude";
+    this.model = options.model;
+
+    const strategy = PRD_STREAM_TOOL_STRATEGIES[this.toolName];
+    if (!strategy) {
+      const supported = Object.keys(PRD_STREAM_TOOL_STRATEGIES).join(", ");
+      this.sendMessage({ type: "error", message: `Unsupported tool: "${this.toolName}". Supported: ${supported}`, timestamp: new Date().toISOString() });
+      return;
+    }
+
     this.sendMessage({
       type: "thinking",
-      content: "Starting Claude Code PRD generator...",
+      content: `Starting ${strategy.displayName} PRD generator...`,
       timestamp: new Date().toISOString(),
     });
 
@@ -81,79 +229,18 @@ export class PrdStreamHandler {
       output: process.stdout,
       terminal: false,
     });
+    rl.on("line", (line: string) => { this.handleClientInput(line); });
 
-    // Handle stdin from client
-    rl.on("line", (line: string) => {
-      this.handleClientInput(line);
-    });
+    const ctx: PrdStreamToolContext = {
+      cwd,
+      initialPrompt: prompt,
+      model: this.model,
+      debug: this.debug,
+      sendMessage: (msg) => this.sendMessage(msg),
+      setStdin: (stdin) => { this.toolStdin = stdin; },
+    };
 
-    // Spawn Claude with stream-json input/output for true multi-turn conversation
-    await this.startClaudeSession(prompt);
-  }
-
-  /**
-   * Start a Claude session that maintains conversation context
-   */
-  private async startClaudeSession(initialPrompt: string): Promise<void> {
-    // Use --input-format=stream-json for multi-turn conversation
-    // --dangerously-skip-permissions is required for non-interactive mode
-    const claude = spawn("claude", [
-      "--print",
-      "--input-format=stream-json",
-      "--output-format=stream-json",
-      "--verbose",
-      "--dangerously-skip-permissions"
-    ], {
-      cwd: this.cwd,
-      stdio: ["pipe", "pipe", "inherit"],
-    });
-
-    this.claudeStdin = claude.stdin;
-
-    if (this.debug) {
-      process.stderr.write(`[DEBUG] Spawned Claude PID:${claude.pid} with stream-json I/O\n`);
-    }
-
-    // Send initial prompt in stream-json format
-    const initialMessage = JSON.stringify({
-      type: "user",
-      message: {
-        role: "user",
-        content: [{ type: "text", text: initialPrompt }]
-      }
-    }) + "\n";
-    claude.stdin.write(initialMessage);
-
-    if (this.debug) {
-      process.stderr.write(`[DEBUG] Sent initial prompt\n`);
-    }
-
-    // Handle stdout from Claude
-    claude.stdout.on("data", (data: Buffer) => {
-      this.handleClaudeOutput(data.toString());
-    });
-
-    // Handle Claude exit
-    return new Promise<void>((resolve) => {
-      claude.on("close", (code) => {
-        this.claudeStdin = null;
-        if (this.debug) {
-          process.stderr.write(`[DEBUG] Claude exited with code:${code}\n`);
-        }
-        // Don't send "done" on normal exit - user may cancel
-        resolve();
-      });
-
-      claude.on("error", (error) => {
-        this.claudeStdin = null;
-        this.sendMessage({
-          type: "error",
-          message: `Failed to spawn Claude: ${error.message}`,
-          timestamp: new Date().toISOString(),
-        });
-        resolve();
-      });
-    });
+    await strategy.start(ctx);
   }
 
   /**
@@ -192,26 +279,26 @@ export class PrdStreamHandler {
         });
         process.exit(0);
       } else if (input.type === "input" && input.content) {
-        if (!this.claudeStdin) {
+        if (!this.toolStdin) {
           this.sendMessage({
             type: "error",
-            message: "Claude session not active",
+            message: "Tool session not active",
             timestamp: new Date().toISOString(),
           });
           return;
         }
-        // Forward user input to Claude in stream-json format
-        const claudeMessage = JSON.stringify({
+        // Forward user input to the tool in stream-json format
+        const toolMessage = JSON.stringify({
           type: "user",
           message: {
             role: "user",
             content: [{ type: "text", text: input.content }]
           }
         }) + "\n";
-        this.claudeStdin.write(claudeMessage);
+        this.toolStdin.write(toolMessage);
 
         if (this.debug) {
-          process.stderr.write(`[DEBUG] Sent user input to Claude\n`);
+          process.stderr.write(`[DEBUG] Sent user input to ${this.toolName}\n`);
         }
       }
     } catch (e) {
