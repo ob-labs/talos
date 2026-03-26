@@ -1,6 +1,6 @@
 {
   "name": "talos-cli",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": false,
   "description": "Talos CLI tool for managing development workflows",
   "bin": {
