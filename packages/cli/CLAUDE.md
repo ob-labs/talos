@@ -54,6 +54,18 @@ Uses worktree mode by default to isolate task environments, supports lock files 
 ### Interactive PRD Multi-Select
 `talos task start` supports interactive multi-select for incomplete PRDs for batch task creation.
 
+### PRD Session Management
+`talos prd` supports session persistence for resuming interrupted conversations:
+
+```bash
+talos prd                 # Create new PRD session (shows session ID)
+talos prd --session <id>   # Resume previous PRD session
+talos prd --list           # List all PRD sessions
+talos prd --delete <id>    # Delete a PRD session
+```
+
+Sessions are stored in `~/.talos/sessions/prd/` and map user-friendly IDs to Claude Code's native session persistence.
+
 ## Debug Mode
 
 ```bash

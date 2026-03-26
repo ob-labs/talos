@@ -37,7 +37,18 @@ program
   .option("--tool <tool>", "指定工具 (claude 或 cursor，stream 模式下有效)")
   .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
   .option("--workspace <name>", "指定 workspace 名称")
-  .action(async (options: { stream?: boolean; workspace?: string; tool?: string; model?: string }) => {
+  .option("--session <id>", "恢复之前的 PRD 会话")
+  .option("--list", "列出所有 PRD 会话")
+  .option("--delete <id>", "删除指定的 PRD 会话")
+  .action(async (options: {
+    stream?: boolean;
+    workspace?: string;
+    tool?: string;
+    model?: string;
+    session?: string;
+    list?: boolean;
+    delete?: string;
+  }) => {
     const { prdCommand, prdStreamCommand } = await import("./commands/prd/index.js");
     if (options.stream) {
       return prdStreamCommand(options);

@@ -10,6 +10,7 @@ import { join, dirname } from "path";
 import { ErrorMessages } from "@/utils/errors.js";
 import { GitRepository } from '@talos/git';
 import { WorkspaceRepository } from '@talos/core';
+import { PrdSessionManager } from "./session-manager.js";
 
 // ESM __dirname polyfill
 const __filename = fileURLToPath(import.meta.url);
@@ -192,16 +193,159 @@ const PRD_TOOL_STRATEGIES: Record<string, PrdToolStrategy> = {
 
 export interface PrdCommandOptions {
   workspace?: string;
-  tool?: string; 
+  tool?: string;
   model?: string;
+  session?: string;
+  list?: boolean;
+  delete?: string;
+}
+
+/**
+ * List all PRD sessions
+ */
+export async function listSessions(): Promise<void> {
+  const sessionManager = new PrdSessionManager();
+  const sessions = sessionManager.listSessions();
+
+  if (sessions.length === 0) {
+    console.log("No PRD sessions found.");
+    return;
+  }
+
+  console.log("PRD Sessions:");
+  console.log("");
+
+  for (const session of sessions) {
+    const createdDate = new Date(session.createdAt);
+    const lastUsedDate = new Date(session.lastUsedAt);
+    const workspaceName = session.workspacePath.split("/").pop() || session.workspacePath;
+
+    console.log(`  Session ID: ${session.prdSessionId}`);
+    console.log(`  Workspace:  ${workspaceName} (${session.workspacePath})`);
+    console.log(`  Created:    ${createdDate.toLocaleString()}`);
+    console.log(`  Last Used:  ${lastUsedDate.toLocaleString()}`);
+    console.log("");
+  }
+}
+
+/**
+ * Delete a PRD session
+ */
+export async function deleteSession(prdSessionId: string): Promise<void> {
+  const sessionManager = new PrdSessionManager();
+  const deleted = sessionManager.deleteSession(prdSessionId);
+
+  if (deleted) {
+    console.log(`Session ${prdSessionId} deleted.`);
+  } else {
+    console.error(`Session ${prdSessionId} not found.`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Resume a PRD session
+ */
+export async function resumeSession(prdSessionId: string, options: PrdCommandOptions = {}): Promise<void> {
+  const sessionManager = new PrdSessionManager();
+  const session = sessionManager.getSession(prdSessionId);
+
+  if (!session) {
+    console.error(`Session ${prdSessionId} not found.`);
+    console.log(`Use --list to see all available sessions.`);
+    process.exit(1);
+  }
+
+  // Verify workspace matches
+  const { path: currentWorkspace } = await detectWorkspace();
+  if (session.workspacePath !== currentWorkspace) {
+    console.error(`Workspace mismatch.`);
+    console.error(`Session workspace: ${session.workspacePath}`);
+    console.error(`Current workspace: ${currentWorkspace}`);
+    console.log(`\nNavigate to the correct workspace and try again.`);
+    process.exit(1);
+  }
+
+  // Update last used time
+  sessionManager.updateLastUsed(prdSessionId);
+
+  const systemPrompt = loadSystemPrompt();
+  const taskContent = buildTaskContent(systemPrompt);
+
+  const toolName = options.tool || "claude";
+  const strategy = PRD_TOOL_STRATEGIES[toolName];
+
+  if (!strategy) {
+    const supported = Object.keys(PRD_TOOL_STRATEGIES).join(", ");
+    console.error(`✗ Unsupported tool: "${toolName}". Supported tools: ${supported}`);
+    process.exit(1);
+  }
+
+  console.log(`Resuming PRD session: ${prdSessionId}`);
+  console.log(`Using ${strategy.displayName}...`);
+  console.log("");
+
+  // For resume, we use the native tool's resume mechanism
+  const { spawn } = await import("child_process");
+  const args: string[] = [];
+
+  if (toolName === "claude") {
+    args.push("--resume", prdSessionId);
+  } else if (toolName === "cursor") {
+    // cursor-agent doesn't have resume, start new session
+    args.push("--workspace", session.workspacePath);
+    if (options.model) args.push("--model", options.model);
+    args.push("--", taskContent);
+  }
+
+  const proc = spawn(
+    toolName === "claude" ? "claude" : "cursor-agent",
+    args,
+    { cwd: session.workspacePath, stdio: "inherit" }
+  );
+
+  return new Promise((resolve, reject) => {
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        const toolDisplayName = strategy.displayName;
+        console.error(`\n${toolDisplayName} exited with code: ${code ?? 1}`);
+        process.exit(code ?? 1);
+      }
+    });
+    proc.on("error", (error) => {
+      console.error(ErrorMessages.UNKNOWN_ERROR(error));
+      reject(error);
+    });
+  });
 }
 
 /**
  * prd command main function (interactive mode)
  */
 export async function prdCommand(options: PrdCommandOptions = {}): Promise<void> {
+  // Handle --list option
+  if (options.list) {
+    return listSessions();
+  }
+
+  // Handle --delete option
+  if (options.delete) {
+    return deleteSession(options.delete);
+  }
+
+  // Handle --session option (resume)
+  if (options.session) {
+    return resumeSession(options.session, options);
+  }
+
+  // Create new session
   const { path: repoRoot } = await detectWorkspace(options.workspace);
   ensureTasksDir(repoRoot);
+
+  const sessionManager = new PrdSessionManager();
+  const session = sessionManager.createSession(repoRoot);
 
   const systemPrompt = loadSystemPrompt();
   const taskContent = buildTaskContent(systemPrompt);
@@ -217,14 +361,50 @@ export async function prdCommand(options: PrdCommandOptions = {}): Promise<void>
 
   console.log(`Starting ${strategy.displayName} PRD generator...`);
   console.log("");
+  console.log(`Session ID: ${session.prdSessionId}`);
+  console.log(`To resume this session later, use: talos prd --session ${session.prdSessionId}`);
+  console.log("");
 
   await strategy.run({ repoRoot, taskContent, model: options.model });
+
+  // Update last used time on exit
+  sessionManager.updateLastUsed(session.prdSessionId);
+}
+
+/**
+ * Build task prompt for resumed sessions
+ */
+function buildTaskPromptForResume(systemPrompt: string): string {
+  // For resumed sessions, use a minimal prompt that references the system prompt
+  return `${systemPrompt}\n\n(Continuing previous PRD discussion. Use "continue" to proceed.)`;
+}
+
+/**
+ * Resume a PRD stream session
+ * prdSessionId is used directly as Claude's session ID
+ */
+async function resumeStreamSession(prdSessionId: string, options: PrdCommandOptions = {}): Promise<void> {
+  const { path: currentWorkspace } = await detectWorkspace();
+
+  const systemPrompt = loadSystemPrompt();
+  const taskContent = buildTaskPromptForResume(systemPrompt);
+
+  const { PrdStreamHandler } = await import("./stream.js");
+  const handler = new PrdStreamHandler();
+
+  // Resume with prdSessionId (used directly as Claude session ID)
+  await handler.resume(prdSessionId, taskContent, options);
 }
 
 /**
  * prd command in stream mode (stdio JSON protocol)
  */
 export async function prdStreamCommand(options: PrdCommandOptions = {}): Promise<void> {
+  // Handle --session option (resume)
+  if (options.session) {
+    return resumeStreamSession(options.session, options);
+  }
+
   const { path: repoRoot } = await detectWorkspace(options.workspace);
   ensureTasksDir(repoRoot);
 

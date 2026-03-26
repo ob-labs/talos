@@ -8,14 +8,7 @@
 import { spawn } from "child_process";
 import * as readline from "readline";
 import type { PrdStreamMessage, PrdStreamInput, StreamJSONMessage } from "@talos/types";
-
-/**
- * Detects if Claude output contains a question with options
- */
-interface DetectedQuestion {
-  text: string;
-  options?: string[];
-}
+import { randomUUID } from "crypto";
 
 /**
  * Simple Stream-JSON Parser (inlined to avoid dependency issues)
@@ -61,6 +54,8 @@ export interface PrdStreamToolContext {
   cwd: string;
   initialPrompt: string;
   model?: string;
+  sessionId?: string;
+  isResume?: boolean;
   debug?: boolean;
   /** Forward a message to the client */
   sendMessage(msg: PrdStreamMessage): void;
@@ -83,7 +78,7 @@ export interface PrdStreamToolStrategy {
 const claudeStreamStrategy: PrdStreamToolStrategy = {
   displayName: "Claude Code",
   async start(ctx) {
-    const { cwd, initialPrompt, model, debug, sendMessage, setStdin } = ctx;
+    const { cwd, initialPrompt, model, sessionId, isResume, debug, sendMessage, setStdin } = ctx;
     const claudeArgs = [
       "--print",
       "--input-format=stream-json",
@@ -92,6 +87,13 @@ const claudeStreamStrategy: PrdStreamToolStrategy = {
       "--dangerously-skip-permissions",
     ];
     if (model) claudeArgs.push("--model", model);
+    if (sessionId) {
+      if (isResume) {
+        claudeArgs.splice(1, 0, "--resume", sessionId);
+      } else {
+        claudeArgs.splice(1, 0, "--session-id", sessionId);
+      }
+    }
 
     const claude = spawn("claude", claudeArgs, {
       cwd,
@@ -99,19 +101,30 @@ const claudeStreamStrategy: PrdStreamToolStrategy = {
     });
 
     setStdin(claude.stdin);
-    if (debug) process.stderr.write(`[DEBUG] Spawned Claude PID:${claude.pid} with stream-json I/O\n`);
+    if (debug) process.stderr.write(`[DEBUG] Spawned Claude PID:${claude.pid} (${isResume ? 'resume' : 'new'})\n`);
 
-    const initialMessage = JSON.stringify({
-      type: "user",
-      message: { role: "user", content: [{ type: "text", text: initialPrompt }] },
-    }) + "\n";
-    claude.stdin.write(initialMessage);
-    if (debug) process.stderr.write(`[DEBUG] Sent initial prompt\n`);
+    if (!isResume) {
+      const initialMessage = JSON.stringify({
+        type: "user",
+        message: { role: "user", content: [{ type: "text", text: initialPrompt }] },
+      }) + "\n";
+      claude.stdin.write(initialMessage);
+      if (debug) process.stderr.write(`[DEBUG] Sent initial prompt\n`);
+    } else {
+      // For resumed sessions, send a minimal trigger to get Claude to respond
+      const continueMessage = JSON.stringify({
+        type: "user",
+        message: { role: "user", content: [{ type: "text", text: "continue" }] },
+      }) + "\n";
+      claude.stdin.write(continueMessage);
+      if (debug) process.stderr.write(`[DEBUG] Sent continue message for resumed session\n`);
+    }
 
     const parser = new StreamJSONParser();
     claude.stdout.on("data", (data: Buffer) => {
       const messages = parser.parse(data.toString());
       for (const msg of messages) {
+        if (debug) process.stderr.write(`[DEBUG] Claude message type: ${msg.type}\n`);
         if (msg.type === "system" || msg.type === "result") continue;
         if (msg.type === "assistant") {
           sendMessage({ timestamp: new Date().toISOString(), ...msg } as PrdStreamMessage);
@@ -201,9 +214,10 @@ export class PrdStreamHandler {
   private toolStdin: NodeJS.WritableStream | null = null;
   private toolName: string = "claude";
   private model: string | undefined = undefined;
+  private sessionId: string = "";
 
   /**
-   * Start the streaming PRD session
+   * Start a new PRD session
    */
   async start(cwd: string, prompt: string, options: { tool?: string; model?: string } = {}): Promise<void> {
     this.cwd = cwd;
@@ -217,24 +231,28 @@ export class PrdStreamHandler {
       return;
     }
 
+    // For Claude, generate and emit session ID
+    if (this.toolName === "claude") {
+      this.sessionId = randomUUID();
+      this.sendMessage({
+        type: "session_start",
+        sessionId: this.sessionId,
+        timestamp: new Date().toISOString(),
+      } as PrdStreamMessage);
+    }
+
     this.sendMessage({
       type: "thinking",
       content: `Starting ${strategy.displayName} PRD generator...`,
       timestamp: new Date().toISOString(),
     });
 
-    // Setup stdin reader for client input
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: false,
-    });
-    rl.on("line", (line: string) => { this.handleClientInput(line); });
-
     const ctx: PrdStreamToolContext = {
       cwd,
       initialPrompt: prompt,
       model: this.model,
+      sessionId: this.sessionId || undefined,
+      isResume: false,
       debug: this.debug,
       sendMessage: (msg) => this.sendMessage(msg),
       setStdin: (stdin) => { this.toolStdin = stdin; },
@@ -244,25 +262,41 @@ export class PrdStreamHandler {
   }
 
   /**
-   * Parse and handle Claude's stdout
+   * Resume an existing session
    */
-  private handleClaudeOutput(data: string): void {
-    const messages = this.parser.parse(data);
+  async resume(sessionId: string, prompt: string, options: { tool?: string; model?: string } = {}): Promise<void> {
+    this.cwd = cwd;
+    this.toolName = options.tool || "claude";
+    this.model = options.model;
+    this.sessionId = sessionId;
 
-    for (const msg of messages) {
-      // Ignore system and result messages
-      if (msg.type === "system" || msg.type === "result") {
-        continue;
-      }
-
-      // Forward assistant messages as-is (just add timestamp)
-      if (msg.type === "assistant") {
-        this.sendMessage({
-          timestamp: new Date().toISOString(),
-          ...msg,
-        });
-      }
+    const strategy = PRD_STREAM_TOOL_STRATEGIES[this.toolName];
+    if (!strategy) {
+      const supported = Object.keys(PRD_STREAM_TOOL_STRATEGIES).join(", ");
+      this.sendMessage({ type: "error", message: `Unsupported tool: "${this.toolName}". Supported: ${supported}`, timestamp: new Date().toISOString() });
+      return;
     }
+
+    // Show simple resume message with session ID
+    const displaySessionId = sessionId.slice(-8);
+    this.sendMessage({
+      type: "thinking",
+      content: `Resuming ${strategy.displayName} from ${displaySessionId}...`,
+      timestamp: new Date().toISOString(),
+    });
+
+    const ctx: PrdStreamToolContext = {
+      cwd: this.cwd,
+      initialPrompt: prompt,
+      model: this.model,
+      sessionId: this.sessionId,
+      isResume: true,
+      debug: this.debug,
+      sendMessage: (msg) => this.sendMessage(msg),
+      setStdin: (stdin) => { this.toolStdin = stdin; },
+    };
+
+    await strategy.start(ctx);
   }
 
   /**
@@ -315,54 +349,5 @@ export class PrdStreamHandler {
    */
   private sendMessage(msg: PrdStreamMessage): void {
     console.log(JSON.stringify(msg));
-  }
-
-  /**
-   * Detect if message contains a question with options
-   */
-  private detectQuestion(msg: StreamJSONMessage): DetectedQuestion | null {
-    const text = this.extractText(msg);
-    if (!text) return null;
-
-    // Detect options like "A)" "B)" "C)" "D)" or "A." "B." etc.
-    const optionsMatch = text.match(/[A-D][)\.]\s*([^\n]+)/g);
-    if (optionsMatch && optionsMatch.length >= 2) {
-      // Split question text from options
-      const parts = text.split(/\n\s*[A-D][)\.]/);
-      return {
-        text: parts[0]?.trim() || text,
-        options: optionsMatch.map((o) => o.replace(/^[A-D][)\.]\s*/, "")),
-      };
-    }
-    return null;
-  }
-
-  /**
-   * Extract text content from a StreamJSONMessage
-   */
-  private extractText(msg: StreamJSONMessage): string | null {
-    if (!msg.message?.content) return null;
-    for (const block of msg.message.content) {
-      if (block.type === "text") {
-        return block.text || "";
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Check if text looks like PRD content
-   * PRD typically has markdown headers like "#", "##", etc.
-   */
-  private isPRDContent(text: string): boolean {
-    const trimmed = text.trim();
-    // Check for PRD-like markers
-    return (
-      trimmed.startsWith("#") ||
-      trimmed.startsWith("##") ||
-      trimmed.includes("## PRD") ||
-      trimmed.includes("# PRD") ||
-      /^\s*#+\s*\w/.test(trimmed)
-    );
   }
 }

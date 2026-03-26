@@ -129,6 +129,9 @@ talos workspace list [--json]               # List all workspaces
 
 ```bash
 talos prd                    # Create PRD through AI conversation
+talos prd --session <id>     # Resume previous PRD session
+talos prd --list             # List all PRD sessions
+talos prd --delete <id>      # Delete a PRD session
 talos ralph [prdIdentifier]  # Convert PRD to Ralph format
 ```
 

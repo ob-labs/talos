@@ -1639,7 +1639,8 @@ export type PrdStreamMessageType =
   | "prd"
   | "done"
   | "error"
-  | "cancel";
+  | "cancel"
+  | "session_start";
 
 /**
  * PRD Stream Protocol - Output message (Talos -> Client)
@@ -1660,6 +1661,10 @@ export interface PrdStreamMessage {
   path?: string;
   /** Additional message for error/cancel types */
   message?: string;
+  /** Session ID for session_start type */
+  sessionId?: string;
+  /** Claude Session ID for session_start type */
+  claudeSessionId?: string;
 }
 
 /**
@@ -1670,6 +1675,22 @@ export interface PrdStreamInput {
   type: "input" | "cancel";
   /** User response content for input type */
   content?: string;
+}
+
+/**
+ * PRD Session Mapping
+ * PRD session info (prdSessionId is used directly as Claude session ID)
+ * Stored in ~/.talos/sessions/prd/{prdSessionId}.json
+ */
+export interface PrdSessionMapping {
+  /** Session ID (e.g., prd-1740839123456-a1b2c3d4) - used directly as Claude session ID */
+  prdSessionId: string;
+  /** Associated workspace path */
+  workspacePath: string;
+  /** ISO timestamp when session was created */
+  createdAt: string;
+  /** ISO timestamp when session was last used */
+  lastUsedAt: string;
 }
 
 // Re-export tool types
