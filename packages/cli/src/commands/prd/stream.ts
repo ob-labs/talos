@@ -215,6 +215,35 @@ export class PrdStreamHandler {
   private toolName: string = "claude";
   private model: string | undefined = undefined;
   private sessionId: string = "";
+  private rl: readline.ReadLine | null = null;
+
+  // Setup stdin reading when handler is created
+  constructor() {
+    this.setupStdinReader();
+  }
+
+  /**
+   * Setup stdin reader to handle client input
+   */
+  private setupStdinReader(): void {
+    this.rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false,
+    });
+
+    this.rl.on("line", (line: string) => {
+      this.handleClientInput(line);
+    });
+
+    // Handle stdin close
+    this.rl.on("close", () => {
+      if (this.debug) {
+        process.stderr.write("[DEBUG] Stdin closed, exiting\n");
+      }
+      process.exit(0);
+    });
+  }
 
   /**
    * Start a new PRD session
@@ -264,8 +293,8 @@ export class PrdStreamHandler {
   /**
    * Resume an existing session
    */
-  async resume(sessionId: string, prompt: string, options: { tool?: string; model?: string } = {}): Promise<void> {
-    this.cwd = cwd;
+  async resume(sessionId: string, prompt: string, options: { tool?: string; model?: string; cwd?: string } = {}): Promise<void> {
+    this.cwd = options.cwd || process.cwd();
     this.toolName = options.tool || "claude";
     this.model = options.model;
     this.sessionId = sessionId;
