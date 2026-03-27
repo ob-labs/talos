@@ -283,6 +283,17 @@ workspaceCmd
     await listWorkspaceCommand({ json: options.json });
   });
 
+// update 命令 - 更新 CLI 工具到最新版本（懒加载）
+program
+  .command("update")
+  .description("Update talos-cli to the latest version")
+  .option("--check", "Check for updates, but do not perform the update")
+  .option("--force", "Skip confirmation and update directly")
+  .action(async (options: { check?: boolean; force?: boolean }) => {
+    const { updateCommand } = await import("./commands/update/index.js");
+    return updateCommand(options);
+  });
+
 // Parse arguments
 program.parse();
 

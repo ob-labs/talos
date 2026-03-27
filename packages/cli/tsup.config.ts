@@ -33,6 +33,13 @@ export default defineConfig({
     const { join } = await import('path');
     const distPath = join(process.cwd(), 'dist');
 
+    // Read package.json to get version and package name
+    const pkgPath = join(process.cwd(), 'package.json');
+    const pkgContent = await promises.readFile(pkgPath, 'utf-8');
+    const pkg = JSON.parse(pkgContent);
+    const version = pkg.version;
+    const packageName = pkg.name;
+
     const files = await promises.readdir(distPath);
     const jsFiles = files.filter(f => f.endsWith('.js') && !f.endsWith('.map'));
 
@@ -47,6 +54,10 @@ export default defineConfig({
         .replace(/from ['"]\/utils\//g, 'from "./utils/')
         .replace(/from ['"]\/tasks\//g, 'from "./tasks/')
         .replace(/from ['"]\/config\//g, 'from "./config/');
+
+      // Inject version number and package name
+      content = content.replace(/VERSION_PLACEHOLDER/g, version);
+      content = content.replace(/PACKAGE_NAME_PLACEHOLDER/g, packageName);
 
       await promises.writeFile(filePath, content);
     }
