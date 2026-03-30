@@ -9,8 +9,8 @@
  * to avoid tight coupling with @talos/core and @talos/git packages.
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { type ChildProcess } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EventEmitter } from "node:events";
@@ -401,35 +401,84 @@ export class RalphExecutor extends EventEmitter {
     const executor = this.toolExecutorFactory.create(this.options.tool);
     this.currentExecutor = executor;
     
-    // Build execution request
+    await this.logInfo(`[DEBUG] Executing ${this.options.tool} command...`);
+
+    const toolLabel = this.options.tool;
+    let streamStdoutBuf = "";
+    let streamStderrBuf = "";
+    let toolStreamChunksUsed = false;
+
+    const flushStreamStdoutLines = async (): Promise<void> => {
+      while (streamStdoutBuf.includes("\n")) {
+        const i = streamStdoutBuf.indexOf("\n");
+        const line = streamStdoutBuf.slice(0, i);
+        streamStdoutBuf = streamStdoutBuf.slice(i + 1);
+        if (!line.trim()) continue;
+        if (this.options.debug) {
+          await this.processStreamJSONLine(line);
+        } else {
+          await this.logInfo(`[${toolLabel}] ${line}`);
+        }
+      }
+    };
+
+    const flushStreamStderrLines = async (): Promise<void> => {
+      while (streamStderrBuf.includes("\n")) {
+        const i = streamStderrBuf.indexOf("\n");
+        const line = streamStderrBuf.slice(0, i);
+        streamStderrBuf = streamStderrBuf.slice(i + 1);
+        if (!line.trim()) continue;
+        await this.logWarn(`[${toolLabel} stderr] ${line}`);
+      }
+    };
+
     const request: ToolExecutionRequest = {
       workingDir: this.options.workingDir,
       prompt,
       debug: this.options.debug,
       model: this.options.model,
+      onStdoutChunk: async (chunk: string) => {
+        toolStreamChunksUsed = true;
+        streamStdoutBuf += chunk;
+        await flushStreamStdoutLines();
+      },
+      onStderrChunk: async (chunk: string) => {
+        toolStreamChunksUsed = true;
+        streamStderrBuf += chunk;
+        await flushStreamStderrLines();
+      },
     };
-    
-    await this.logInfo(`[DEBUG] Executing ${this.options.tool} command...`);
-    
-    // Execute using the executor
+
     const result = await executor.execute(request);
+
+    if (streamStdoutBuf.trim()) {
+      if (this.options.debug) {
+        await this.processStreamJSONLine(streamStdoutBuf);
+      } else {
+        await this.logInfo(`[${toolLabel}] ${streamStdoutBuf}`);
+      }
+      streamStdoutBuf = "";
+    }
+    if (streamStderrBuf.trim()) {
+      await this.logWarn(`[${toolLabel} stderr] ${streamStderrBuf}`);
+      streamStderrBuf = "";
+    }
 
     await this.logInfo(`[DEBUG] Execution result: success=${result.success}, exitCode=${result.exitCode}`);
     await this.logInfo(`[DEBUG] Output length: ${result.output?.length || 0}, Error length: ${result.error?.length || 0}`);
 
-    // In debug mode, parse and format stream-json output line by line
-    if (this.options.debug && result.output) {
-      const lines = result.output.split('\n');
+    // Executors that emit chunks already logged line-by-line; avoid duplicate parsing
+    if (this.options.debug && result.output && !toolStreamChunksUsed) {
+      const lines = result.output.split("\n");
       for (const line of lines) {
         if (line.trim()) {
           await this.processStreamJSONLine(line);
         }
       }
-    } else {
-      // Non-debug mode: just log a preview
-      if (result.output) {
-        await this.logInfo(`[DEBUG] Output (first 500 chars): ${result.output.substring(0, Math.min(500, result.output.length))}`);
-      }
+    } else if (result.output && !toolStreamChunksUsed) {
+      await this.logInfo(
+        `[DEBUG] Output (first 500 chars): ${result.output.substring(0, Math.min(500, result.output.length))}`
+      );
     }
 
     if (result.error) {

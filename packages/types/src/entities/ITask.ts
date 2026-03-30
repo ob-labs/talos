@@ -99,7 +99,7 @@ export interface ITask {
   command: string;
 
   /**
-   * Tool to use (claude or cursor)
+   * Tool to use (claude, cursor, or qoder)
    */
   tool?: ToolType;
 

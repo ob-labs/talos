@@ -7,6 +7,7 @@
  * Built-in tools:
  * - 'claude': ClaudeExecutor for Claude Code CLI
  * - 'cursor': CursorExecutor for Cursor IDE cursor-agent CLI
+ * - 'qoder': QoderExecutor for Qoder CLI
  */
 
 import type { IToolExecutorFactory } from '@talos/types';
@@ -14,6 +15,7 @@ import type { IToolExecutor } from '@talos/types';
 
 import { ClaudeExecutor } from './executors/ClaudeExecutor';
 import { CursorExecutor } from './executors/CursorExecutor';
+import { QoderExecutor } from './executors/QoderExecutor';
 
 /**
  * Tool Executor Factory
@@ -37,6 +39,7 @@ export class ToolExecutorFactory implements IToolExecutorFactory {
     // Register built-in tools
     this.register('claude', () => new ClaudeExecutor());
     this.register('cursor', () => new CursorExecutor());
+    this.register('qoder', () => new QoderExecutor());
   }
 
   /**

@@ -42,4 +42,16 @@ export interface ToolExecutionRequest {
    * Set to 0 for no timeout (not recommended for production)
    */
   timeout?: number;
+
+  /**
+   * Invoked for each stdout chunk as it arrives (e.g. cursor-agent stream-json).
+   * Implementations may return a Promise; the executor serializes invocations
+   * so logs stay ordered before the process result is resolved.
+   */
+  onStdoutChunk?: (chunk: string) => void | Promise<void>;
+
+  /**
+   * Invoked for each stderr chunk as it arrives.
+   */
+  onStderrChunk?: (chunk: string) => void | Promise<void>;
 }

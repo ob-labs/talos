@@ -55,7 +55,7 @@ describe('CursorExecutor', () => {
         'composer-1.5',
         'composer-1.0',
       ]);
-      expect(config.defaultTimeout).toBe(300000); // 5 minutes
+      expect(config.defaultTimeout).toBe(600000); // 10 minutes
     });
   });
 

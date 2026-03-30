@@ -56,6 +56,7 @@ describe('ClaudeExecutor', () => {
         'claude-3-5-opus-20241022',
         'claude-3-haiku-20240307',
       ]);
+      expect(config.defaultTimeout).toBe(600000);
     });
   });
 
