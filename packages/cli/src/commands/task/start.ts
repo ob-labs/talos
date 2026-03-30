@@ -141,7 +141,18 @@ export async function startTaskCommand(options: TaskStartOptions): Promise<void>
     process.exit(1);
   }
 
-  const tool = options.tool ? ['claude', 'cursor'].includes(options.tool.toLowerCase()) ? options.tool.toLowerCase() : (console.error(`✗ Invalid tool value: "${options.tool}"\nSupported tools: claude, cursor`), process.exit(1)) : undefined;
+  const validTools = ['claude', 'cursor', 'qoder'];
+  let tool: string | undefined;
+  if (options.tool) {
+    const normalized = options.tool.toLowerCase();
+    if (!validTools.includes(normalized)) {
+      console.error(
+        `✗ Invalid tool value: "${options.tool}"\nSupported tools: ${validTools.join(', ')}`
+      );
+      process.exit(1);
+    }
+    tool = normalized;
+  }
 
   try {
     const task = await client.startTask({

@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ToolExecutorFactory } from './ToolExecutorFactory';
 import { ClaudeExecutor } from './executors/ClaudeExecutor';
 import { CursorExecutor } from './executors/CursorExecutor';
+import { QoderExecutor } from './executors/QoderExecutor';
 import type { IToolExecutor } from '@talos/types';
 
 describe('ToolExecutorFactory', () => {
@@ -37,6 +38,7 @@ describe('ToolExecutorFactory', () => {
       const available = factory.listAvailable();
       expect(available).toContain('claude');
       expect(available).toContain('cursor');
+      expect(available).toContain('qoder');
     });
   });
 
@@ -51,6 +53,12 @@ describe('ToolExecutorFactory', () => {
       const executor = factory.create('cursor');
       expect(executor).toBeInstanceOf(CursorExecutor);
       expect(executor.name).toBe('cursor');
+    });
+
+    it('should create QoderExecutor for "qoder"', () => {
+      const executor = factory.create('qoder');
+      expect(executor).toBeInstanceOf(QoderExecutor);
+      expect(executor.name).toBe('qoder');
     });
 
     it('should throw error for unknown tool', () => {

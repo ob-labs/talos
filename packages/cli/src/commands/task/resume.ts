@@ -9,7 +9,7 @@ import { TalosClient } from "@/client/TalosClient";
 export interface TaskResumeOptions {
   /** Enable debug mode */
   debug?: boolean;
-  /** Tool to use for task execution (claude or cursor) */
+  /** Tool to use for task execution (claude, cursor, or qoder) */
   tool?: string;
   /** Model name */
   model?: string;
@@ -22,7 +22,7 @@ const colors = {
 
 function validateTool(tool?: string): string | undefined {
   if (!tool) return undefined;
-  const validTools = ['claude', 'cursor'];
+  const validTools = ['claude', 'cursor', 'qoder'];
   const normalizedTool = tool.toLowerCase();
   if (!validTools.includes(normalizedTool)) {
     console.error(`${colors.red}✗${colors.reset} Invalid tool value: "${tool}"`);

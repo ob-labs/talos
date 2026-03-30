@@ -17,6 +17,8 @@ import type {
   ToolConfig,
 } from '@talos/types';
 
+import { createStreamChunkChain } from '../streamChunkChain';
+
 /**
  * Claude Code Executor
  *
@@ -36,7 +38,9 @@ export class ClaudeExecutor implements IToolExecutor {
    * @returns Execution result with success status, output, and error info
    */
   async execute(request: ToolExecutionRequest): Promise<ToolExecutionResult> {
-    const { workingDir, prompt, debug, model } = request;
+    const { workingDir, prompt, debug, model, onStdoutChunk, onStderrChunk } =
+      request;
+    const wallMs = this.resolveWallClockTimeoutMs(request);
 
     // Build command arguments
     const args = this.buildCommandArgs(debug, model);
@@ -48,12 +52,53 @@ export class ClaudeExecutor implements IToolExecutor {
     let stderr = '';
 
     return new Promise<ToolExecutionResult>((resolve) => {
+      const streamChunks = createStreamChunkChain();
+      let settled = false;
+      let timedOut = false;
+      let wallTimer: ReturnType<typeof setTimeout> | undefined;
+      let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const finishOnce = (result: ToolExecutionResult) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (wallTimer !== undefined) {
+          clearTimeout(wallTimer);
+          wallTimer = undefined;
+        }
+        if (forceKillTimer !== undefined) {
+          clearTimeout(forceKillTimer);
+          forceKillTimer = undefined;
+        }
+        streamChunks.finish(resolve, result);
+      };
+
       try {
         this.currentProcess = spawn('claude', args, {
           cwd: workingDir,
           env,
           stdio: ['pipe', 'pipe', 'pipe'],
         });
+
+        if (wallMs !== null) {
+          wallTimer = setTimeout(() => {
+            timedOut = true;
+            const proc = this.currentProcess;
+            if (!proc?.pid) {
+              return;
+            }
+            const pid = proc.pid;
+            proc.kill('SIGTERM');
+            forceKillTimer = setTimeout(() => {
+              try {
+                kill(pid, 'SIGKILL');
+              } catch {
+                // ignore
+              }
+            }, this.stopTimeoutMs);
+          }, wallMs);
+        }
 
         // Pass prompt via stdin
         if (this.currentProcess.stdin) {
@@ -64,28 +109,52 @@ export class ClaudeExecutor implements IToolExecutor {
         // Collect stdout
         if (this.currentProcess.stdout) {
           this.currentProcess.stdout.on('data', (data) => {
-            stdout += data.toString();
+            const s = data.toString();
+            stdout += s;
+            streamChunks.chainStream(onStdoutChunk, s);
           });
         }
 
         // Collect stderr
         if (this.currentProcess.stderr) {
           this.currentProcess.stderr.on('data', (data) => {
-            stderr += data.toString();
+            const s = data.toString();
+            stderr += s;
+            streamChunks.chainStream(onStderrChunk, s);
           });
         }
 
         // Handle process exit
-        this.currentProcess.on('close', (code) => {
+        this.currentProcess.on('close', (code, signal) => {
+          if (forceKillTimer !== undefined) {
+            clearTimeout(forceKillTimer);
+            forceKillTimer = undefined;
+          }
           this.currentProcess = null;
 
           const success = code === 0;
           const output = stdout + stderr;
+          const stderrTrim = stderr.trim();
 
-          resolve({
+          let error: string | undefined;
+          if (success) {
+            error = undefined;
+          } else if (timedOut && wallMs !== null) {
+            error = stderrTrim
+              ? `Execution timed out after ${wallMs}ms: ${stderrTrim}`
+              : `Execution timed out after ${wallMs}ms`;
+          } else if (code === null && signal) {
+            error = stderrTrim
+              ? `${stderrTrim} (terminated by signal ${signal})`
+              : `Process terminated by signal ${signal}`;
+          } else {
+            error = stderrTrim || 'Execution failed';
+          }
+
+          finishOnce({
             success,
             output,
-            error: success ? undefined : stderr || 'Execution failed',
+            error,
             exitCode: code === null ? undefined : code,
           });
         });
@@ -94,7 +163,7 @@ export class ClaudeExecutor implements IToolExecutor {
         this.currentProcess.on('error', (error) => {
           this.currentProcess = null;
 
-          resolve({
+          finishOnce({
             success: false,
             output: '',
             error: `Failed to execute Claude Code: ${error.message}`,
@@ -104,7 +173,7 @@ export class ClaudeExecutor implements IToolExecutor {
       } catch (error) {
         this.currentProcess = null;
 
-        resolve({
+        finishOnce({
           success: false,
           output: '',
           error: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
@@ -188,7 +257,25 @@ export class ClaudeExecutor implements IToolExecutor {
         'claude-3-5-opus-20241022',
         'claude-3-haiku-20240307',
       ],
+      defaultTimeout: 600000, // 10 minutes default
     };
+  }
+
+  /**
+   * Wall-clock timeout: request.timeout overrides config; 0 disables.
+   */
+  private resolveWallClockTimeoutMs(request: ToolExecutionRequest): number | null {
+    if (request.timeout === 0) {
+      return null;
+    }
+    if (typeof request.timeout === 'number' && request.timeout > 0) {
+      return request.timeout;
+    }
+    const defaultMs = this.getConfig().defaultTimeout;
+    if (typeof defaultMs === 'number' && defaultMs > 0) {
+      return defaultMs;
+    }
+    return null;
   }
 
   /**

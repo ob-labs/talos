@@ -1,23 +1,14 @@
 /**
- * Application Layer: Cursor Executor
+ * Application Layer: Qoder CLI Executor
  *
- * Implements the IToolExecutor interface for Cursor IDE's cursor-agent CLI.
- * Encapsulates cursor-agent calling details including temp file handling,
- * command building, and environment cleanup.
- *
- * Uses `--output-format stream-json` for streaming output in all modes.
- * Execution completes when the cursor-agent process exits; success follows
- * the process exit code. A wall-clock timeout (request.timeout or
- * getConfig().defaultTimeout; use timeout: 0 to disable) sends SIGTERM then
- * SIGKILL so execute() cannot hang indefinitely.
+ * Implements IToolExecutor for Qoder CLI (`qodercli` by default).
+ * Matches CLI agents: `-w <workingDir> -f stream-json -p <prompt>`;
+ * binary override via `TALOS_QODER_CLI`. Qoder does not accept `--model` on CLI.
  */
 
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { kill } from 'node:process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import type { IToolExecutor } from '@talos/types';
 import type {
@@ -28,47 +19,27 @@ import type {
 
 import { createStreamChunkChain } from '../streamChunkChain';
 
-/**
- * Cursor Executor
- *
- * Executes Cursor IDE's cursor-agent CLI with proper environment setup
- * and temp file handling. Stdout/stderr are collected as the process runs
- * (stream-json lines); the run ends when the child process exits.
- */
-export class CursorExecutor implements IToolExecutor {
-  readonly name = 'cursor';
+function resolveQoderCliCommand(): string {
+  const fromEnv = process.env.TALOS_QODER_CLI?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : 'qodercli';
+}
+
+export class QoderExecutor implements IToolExecutor {
+  readonly name = 'qoder';
 
   private currentProcess: ChildProcess | null = null;
-  private stopTimeoutMs = 5000; // 5 seconds for SIGTERM to SIGKILL timeout
-  private tempDir: string | null = null;
+  private stopTimeoutMs = 5000;
 
-  /**
-   * Execute a Cursor agent task
-   *
-   * @param request - Tool execution request with prompt and options
-   * @returns Execution result with success status, output, and error info
-   */
   async execute(request: ToolExecutionRequest): Promise<ToolExecutionResult> {
-    const { workingDir, prompt, model, onStdoutChunk, onStderrChunk } = request;
+    const { workingDir, prompt, onStdoutChunk, onStderrChunk } = request;
     const wallMs = this.resolveWallClockTimeoutMs(request);
+    const bin = resolveQoderCliCommand();
 
-    // Create temp directory for prompt file
-    this.tempDir = await mkdtemp(join(tmpdir(), 'talos-cursor-'));
-
-    // Build command arguments (always stream-json for streaming output)
-    const args = this.buildCommandArgs(model);
-
-    // Clean environment variables to avoid nested sessions
+    const args = ['-w', workingDir, '-f', 'stream-json', '-p', prompt];
     const env = this.cleanEnvironment(process.env);
 
     let stdout = '';
     let stderr = '';
-    let tempFilePath: string | null = null;
-
-    // Create temp file for prompt (cursor-agent doesn't support stdin directly)
-    const timestamp = Date.now();
-    tempFilePath = join(this.tempDir!, `prompt-${timestamp}.txt`);
-    await writeFile(tempFilePath, prompt, 'utf-8');
 
     return new Promise<ToolExecutionResult>((resolve) => {
       const streamChunks = createStreamChunkChain();
@@ -94,13 +65,10 @@ export class CursorExecutor implements IToolExecutor {
       };
 
       try {
-        // Build shell command: cat "{tempFile}" | cursor-agent --print --trust --force
-        const shellCommand = `cat "${tempFilePath}" | cursor-agent ${args.join(' ')}`;
-
-        this.currentProcess = spawn('sh', ['-c', shellCommand], {
+        this.currentProcess = spawn(bin, args, {
           cwd: workingDir,
           env,
-          stdio: ['pipe', 'pipe', 'pipe'],
+          stdio: ['ignore', 'pipe', 'pipe'],
         });
 
         if (wallMs !== null) {
@@ -122,7 +90,6 @@ export class CursorExecutor implements IToolExecutor {
           }, wallMs);
         }
 
-        // Collect stdout
         if (this.currentProcess.stdout) {
           this.currentProcess.stdout.on('data', (data) => {
             const s = data.toString();
@@ -131,7 +98,6 @@ export class CursorExecutor implements IToolExecutor {
           });
         }
 
-        // Collect stderr
         if (this.currentProcess.stderr) {
           this.currentProcess.stderr.on('data', (data) => {
             const s = data.toString();
@@ -140,7 +106,6 @@ export class CursorExecutor implements IToolExecutor {
           });
         }
 
-        // Handle process exit — sole completion signal
         this.currentProcess.on('close', (code, signal) => {
           if (forceKillTimer !== undefined) {
             clearTimeout(forceKillTimer);
@@ -175,14 +140,13 @@ export class CursorExecutor implements IToolExecutor {
           });
         });
 
-        // Handle process error (e.g., command not found)
-        this.currentProcess.on('error', (error) => {
+        this.currentProcess.on('error', (err) => {
           this.currentProcess = null;
 
           finishOnce({
             success: false,
             output: stdout,
-            error: `Failed to execute Cursor agent: ${error.message}`,
+            error: `Failed to execute Qoder CLI (${bin}): ${err.message}`,
             exitCode: -1,
           });
         });
@@ -197,26 +161,13 @@ export class CursorExecutor implements IToolExecutor {
         });
       }
     });
-
-    // Clean up temp file after Promise is set up
-    if (tempFilePath) {
-      try {
-        await rm(tempFilePath!, { force: true });
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
   }
 
-  /**
-   * Check if Cursor agent CLI is available
-   *
-   * @returns true if the 'cursor-agent' command exists and is executable
-   */
   async isAvailable(): Promise<boolean> {
+    const bin = resolveQoderCliCommand();
     return new Promise<boolean>((resolve) => {
       try {
-        const checkProcess = spawn('command', ['-v', 'cursor-agent'], {
+        const checkProcess = spawn('command', ['-v', bin], {
           stdio: 'pipe',
         });
 
@@ -233,14 +184,9 @@ export class CursorExecutor implements IToolExecutor {
     });
   }
 
-  /**
-   * Stop the currently running Cursor agent process
-   *
-   * Attempts SIGTERM first, then SIGKILL after timeout if needed.
-   */
   async stop(): Promise<void> {
     if (!this.currentProcess) {
-      return; // No process running, no-op
+      return;
     }
 
     const pid = this.currentProcess.pid;
@@ -249,18 +195,14 @@ export class CursorExecutor implements IToolExecutor {
       return;
     }
 
-    // Attempt SIGTERM first
     this.currentProcess.kill('SIGTERM');
 
-    // Wait for graceful shutdown, then SIGKILL if needed
     const timeoutId = setTimeout(() => {
       if (this.currentProcess && this.currentProcess.pid === pid) {
-        // Force kill if still running
         kill(pid, 'SIGKILL');
       }
     }, this.stopTimeoutMs);
 
-    // Clear timeout if process exits
     this.currentProcess.on('exit', () => {
       clearTimeout(timeoutId);
     });
@@ -268,35 +210,18 @@ export class CursorExecutor implements IToolExecutor {
     this.currentProcess = null;
   }
 
-  /**
-   * Get Cursor agent configuration
-   *
-   * @returns Tool configuration with supported models and capabilities
-   */
   getConfig(): ToolConfig {
     return {
-      name: 'cursor',
+      name: 'qoder',
       supportsDebugMode: true,
-      supportedModels: [
-        'composer-1.5',
-        'composer-1.0',
-      ],
-      defaultTimeout: 600000, // 10 minutes default
+      supportedModels: [],
+      defaultTimeout: 600000,
     };
   }
 
-  /**
-   * Build command arguments for Cursor agent execution
-   *
-   * Always uses stream-json so stdout is streamed consistently.
-   *
-   * @param model - Optional model identifier
-   * @returns Array of command arguments
-   */
-  /**
-   * Wall-clock timeout: request.timeout overrides config; 0 disables.
-   */
-  private resolveWallClockTimeoutMs(request: ToolExecutionRequest): number | null {
+  private resolveWallClockTimeoutMs(
+    request: ToolExecutionRequest
+  ): number | null {
     if (request.timeout === 0) {
       return null;
     }
@@ -310,34 +235,9 @@ export class CursorExecutor implements IToolExecutor {
     return null;
   }
 
-  private buildCommandArgs(model?: string): string[] {
-    const args: string[] = [
-      '--print',
-      '--trust',
-      '--force',
-      '--output-format',
-      'stream-json',
-    ];
-
-    if (model) {
-      args.push('--model', model);
-    }
-
-    return args;
-  }
-
-  /**
-   * Clean environment variables to avoid nested sessions
-   *
-   * @param env - Current process environment
-   * @returns Cleaned environment object
-   */
   private cleanEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     const cleanedEnv = { ...env };
-
-    // Delete environment variables that would cause nested sessions
     delete cleanedEnv.CLAUDECODE;
-
     return cleanedEnv;
   }
 }

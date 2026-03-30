@@ -21,8 +21,8 @@ program
   .description("无头模式的 PRD 转换器")
   .option("--prd <prdFiles...>", "PRD 文件路径（支持多个，支持通配符）")
   .option("--force", "跳过确认")
-  .option("--tool <tool>", "指定工具 (claude 或 cursor)")
-  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
+  .option("--tool <tool>", "指定工具 (claude、cursor 或 qoder)")
+  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus；qoder 由 CLI/账号配置)")
   .option("--workspace <name>", "指定 workspace 名称")
   .action(async (options) => {
     const { ralphCommand } = await import("./commands/ralph/index.js");
@@ -34,7 +34,7 @@ program
   .command("prd")
   .description("通过 Claude Code 对话创建 PRD")
   .option("--stream", "启用流式模式（stdio JSON 协议）")
-  .option("--tool <tool>", "指定工具 (claude 或 cursor，stream 模式下有效)")
+  .option("--tool <tool>", "指定工具 (claude、cursor 或 qoder，stream 模式下有效)")
   .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
   .option("--workspace <name>", "指定 workspace 名称")
   .option("--session <id>", "恢复之前的 PRD 会话")
@@ -98,9 +98,9 @@ taskCmd
   .command("start")
   .description("启动任务（所有未执行的 PRD，或指定的 PRD）")
   .option("--prd <path>", "指定 PRD 路径")
-  .option("--tool <tool>", "指定工具 (claude 或 cursor)")
+  .option("--tool <tool>", "指定工具 (claude、cursor 或 qoder)")
   .option("--debug", "启用调试模式（捕获完整输出）")
-  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
+  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus；qoder 由 CLI/账号配置)")
   .option("--workspace <name>", "指定 workspace 名称")
   .action(async (options: { prd?: string; tool?: string; debug?: boolean; model?: string; workspace?: string }) => {
     const { startTaskCommand } = await import("./commands/task/start.js");
@@ -147,9 +147,9 @@ taskCmd
 taskCmd
   .command("resume <taskId>")
   .description("恢复 Task")
-  .option("--tool <tool>", "指定工具 (claude 或 cursor)")
+  .option("--tool <tool>", "指定工具 (claude、cursor 或 qoder)")
   .option("--debug", "启用调试模式（捕获完整输出）")
-  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus)")
+  .option("--model <model>", "指定 AI 模型 (cursor: composer-1.5, sonnet-4, auto | claude: sonnet-4, opus；qoder 由 CLI/账号配置)")
   .action(async (taskId: string, options: { tool?: string; debug?: boolean; model?: string }) => {
     const { resumeTaskCommand } = await import("./commands/task/resume.js");
     return resumeTaskCommand(taskId, options);

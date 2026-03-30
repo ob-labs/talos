@@ -1691,6 +1691,8 @@ export interface PrdSessionMapping {
   createdAt: string;
   /** ISO timestamp when session was last used */
   lastUsedAt: string;
+  /** Qoder CLI chat id from stream-json (for `qodercli -r`); optional */
+  qoderSessionId?: string;
 }
 
 // Re-export tool types
@@ -1803,6 +1805,7 @@ export type { IToolExecutor } from "./executor/IToolExecutor";
 export type { IToolExecutorFactory } from "./executor/IToolExecutorFactory";
 
 // Tool Execution Types
+export type { StreamChunkChain } from "./executor/StreamChunkChain";
 export type { ToolExecutionRequest } from "./executor/ToolExecutionRequest";
 export type { ToolExecutionResult } from "./executor/ToolExecutionResult";
 export type { ToolConfig } from "./executor/ToolConfig";

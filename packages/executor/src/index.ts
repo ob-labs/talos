@@ -17,6 +17,7 @@ export type {
 // Export executor implementations
 export { ClaudeExecutor } from './executors/ClaudeExecutor';
 export { CursorExecutor } from './executors/CursorExecutor';
+export { QoderExecutor } from './executors/QoderExecutor';
 
 // Export factory
 export { ToolExecutorFactory } from './ToolExecutorFactory';

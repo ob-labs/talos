@@ -154,6 +154,14 @@ export class PrdSessionManager {
     }
   }
 
+  setQoderSessionId(prdSessionId: string, qoderSessionId: string): void {
+    const session = this.getSession(prdSessionId);
+    if (session) {
+      session.qoderSessionId = qoderSessionId;
+      this.saveSession(session);
+    }
+  }
+
   /**
    * Verify workspace path matches
    * @returns true if workspace matches or if session doesn't exist

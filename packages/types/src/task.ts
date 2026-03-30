@@ -7,4 +7,4 @@
  * Available AI tools for executing tasks
  * 可用于执行任务的 AI 工具
  */
-export type ToolType = "claude" | "cursor";
+export type ToolType = "claude" | "cursor" | "qoder";
