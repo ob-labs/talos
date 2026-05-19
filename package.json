@@ -1,5 +1,5 @@
 {
-  "name": "talos",
+  "name": "talos-cli",
   "version": "0.1.0",
   "type": "module",
   "description": "CLI tool for managing AI coding workflows",
