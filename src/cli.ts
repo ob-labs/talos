@@ -34,8 +34,7 @@ function getSourceWorkflows(sourceDir: string): { name: string; dir: string; des
     .map((entry) => {
       const workflowDir = join(workflowsDir, entry.name);
       const mdPath = join(workflowDir, "workflow.md");
-      const manifestPath = join(workflowDir, "manifest.json");
-      if (!existsSync(mdPath) || !existsSync(manifestPath)) return null;
+      if (!existsSync(mdPath)) return null;
       const raw = readFileSync(mdPath, "utf-8");
       const match = raw.match(/^#\s+(.+)$/m);
       const description = match ? match[1] : "";
