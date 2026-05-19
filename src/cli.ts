@@ -107,14 +107,9 @@ cli
       }
 
       if (!name) {
-        if (sourceWorkflows.length === 1) {
-          const wf = sourceWorkflows[0];
-          workflowName = wf.name;
-          workflowDir = wf.dir;
-        } else {
-          const selected = await select({
-            message: "Select a workflow to install",
-            options: sourceWorkflows.map((wf) => ({
+        const selected = await select({
+          message: "Select a workflow to install",
+          options: sourceWorkflows.map((wf) => ({
               value: wf.name,
               label: wf.name,
               hint: wf.description,
@@ -129,7 +124,6 @@ cli
           }
           workflowName = wf.name;
           workflowDir = wf.dir;
-        }
       } else {
         const wf = sourceWorkflows.find((w) => w.name === name);
         if (!wf) {
