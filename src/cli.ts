@@ -2,6 +2,7 @@ import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cac } from "cac";
 import { select, isCancel } from "@clack/prompts";
+import matter from "gray-matter";
 import { sync } from "./sync.js";
 import { resolveBuiltinWorkflowDir, resolveGitWorkflowDir } from "./registry.js";
 import { PACKAGE_DIR } from "./paths.js";
@@ -21,6 +22,21 @@ function getBuiltinWorkflows(): { name: string; description: string }[] {
         if (match) description = match[1];
       }
       return { name: entry.name, description };
+    });
+}
+
+function getBuiltinAgents(): { name: string; description: string }[] {
+  const agentsDir = join(PACKAGE_DIR, "agents");
+  if (!existsSync(agentsDir)) return [];
+
+  return readdirSync(agentsDir)
+    .filter((f) => f.endsWith(".md"))
+    .map((file) => {
+      const raw = readFileSync(join(agentsDir, file), "utf-8");
+      const { data } = matter(raw);
+      const name = (data as any).name || file.replace(".md", "");
+      const description = (data as any).description || "";
+      return { name, description };
     });
 }
 
@@ -81,14 +97,28 @@ const cli = cac("talos");
 cli.version("0.1.0");
 cli.usage("[command] [options]");
 
-cli.command("list", "列出可用的 workflows").action(() => {
+cli.command("list", "列出可用的 workflows 和 agents").action(() => {
   const workflows = getBuiltinWorkflows();
-  if (workflows.length === 0) {
-    console.log("No workflows found.");
+  const agents = getBuiltinAgents();
+
+  if (workflows.length === 0 && agents.length === 0) {
+    console.log("No workflows or agents found.");
     return;
   }
-  for (const wf of workflows) {
-    console.log(`  ${wf.name}${wf.description ? " — " + wf.description : ""}`);
+
+  if (workflows.length > 0) {
+    console.log("Workflows:");
+    for (const wf of workflows) {
+      console.log(`  ${wf.name}${wf.description ? " — " + wf.description : ""}`);
+    }
+  }
+
+  if (agents.length > 0) {
+    if (workflows.length > 0) console.log("");
+    console.log("Agents:");
+    for (const ag of agents) {
+      console.log(`  ${ag.name}${ag.description ? " — " + ag.description : ""}`);
+    }
   }
 });
 

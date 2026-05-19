@@ -1,0 +1,15 @@
+{
+  "memorize": true,
+  "agents": [
+    "agents/debugger",
+    "agents/reviewer"
+  ],
+  "skills": [
+    { "name": "diagnose", "source": "mattpocock/skills" },
+    { "name": "code-review", "source": "obra/superpowers", "installName": "requesting-code-review" },
+    { "name": "knowledge-synthesis", "source": "anthropics/knowledge-work-plugins" },
+    { "name": "obsidian-markdown", "source": "kepano/obsidian-skills" }
+  ],
+  "mcp": [],
+  "plugins": []
+}
