@@ -18,8 +18,6 @@ talos install issue2code
 | `issue2code` | 从需求到代码的完整流程：同步 issue → PRD → 拆分 → 实现 → 审查 → E2E 验证 |
 | `debug` | 缺陷诊断与修复：理解缺陷 → 调试循环 → 审查 |
 
-安装后，在 Claude Code 中运行 `/workflow <name>` 即可启动。
-
 ## 架构
 
 ### Talos vs 传统 Workflow 平台
