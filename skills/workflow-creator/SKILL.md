@@ -60,9 +60,9 @@ user-invocable: true
 输出 stage 列表给用户确认，括号内标注执行方式：
 
 ```
-Stage 0: 理解缺陷 [main]
-Stage 1: 调试验证 [agent: debugger]
-Stage 2: 代码审查 [agent: reviewer]
+Stage 1: 理解缺陷 [main]
+Stage 2: 调试验证 [agent: debugger]
+Stage 3: 代码审查 [agent: reviewer]
 ```
 
 用户确认后进入 Phase 3。
@@ -103,7 +103,7 @@ Stage 2: 代码审查 [agent: reviewer]
 
 一句话描述。
 
-## stage 0 — <stage 名称>
+## stage 1 — <stage 名称>
 
 <stage 描述>
 
@@ -188,7 +188,7 @@ model: sonnet
 2. 每个 agent `## 依赖` 中的 skill，都在 `manifest.json` 的 skills 中有条目
 3. 每个 agent `## 依赖` 中的 MCP，都在 `manifest.json` 的 mcp 中声明
 4. manifest.json 无孤儿条目（所有声明的依赖都被 workflow.md 或 agent 引用）
-5. Stage 编号从 0 连续递增
+5. Stage 编号从 1 连续递增
 6. 每个 stage 的完成标准在描述中清晰可判定
 7. workflow.md 不包含记忆相关 stage（由 workflow skill 自动处理）
 
@@ -201,17 +201,17 @@ model: sonnet
 
 Web 缺陷诊断与修复流程。
 
-## stage 0 — 理解缺陷
+## stage 1 — 理解缺陷
 
 与用户对话，理解缺陷现象、复现步骤、期望行为。
 
 在完整理解缺陷之前可以多次询问用户，不要急于进入调试阶段。确认理解后输出结构化的缺陷描述。
 
-## stage 1 — 调试验证
+## stage 2 — 调试验证
 
 委托 **debugger** agent，传入缺陷描述和相关代码位置。
 
-## stage 2 — 代码审查
+## stage 3 — 代码审查
 
 委托 **reviewer** agent，传入修复代码。
 

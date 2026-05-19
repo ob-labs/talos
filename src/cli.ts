@@ -2,7 +2,6 @@ import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cac } from "cac";
 import { select, isCancel } from "@clack/prompts";
-import matter from "gray-matter";
 import { sync } from "./sync.js";
 import { resolveBuiltinWorkflowDir, resolveGitWorkflowDir } from "./registry.js";
 import { PACKAGE_DIR } from "./paths.js";
@@ -25,24 +24,8 @@ function getBuiltinWorkflows(): { name: string; description: string }[] {
     });
 }
 
-function getBuiltinAgents(): { name: string; description: string }[] {
-  const agentsDir = join(PACKAGE_DIR, "agents");
-  if (!existsSync(agentsDir)) return [];
-
-  return readdirSync(agentsDir)
-    .filter((f) => f.endsWith(".md"))
-    .map((file) => {
-      const raw = readFileSync(join(agentsDir, file), "utf-8");
-      const { data } = matter(raw);
-      const name = (data as any).name || file.replace(".md", "");
-      const description = (data as any).description || "";
-      return { name, description };
-    });
-}
-
 // Scan a directory for workflows (either single workflow or multiple subdirectories)
 function getSourceWorkflows(sourceDir: string): { name: string; dir: string; description: string }[] {
-  // Check if sourceDir itself is a workflow
   const mdPath = join(sourceDir, "workflow.md");
   if (existsSync(mdPath)) {
     const raw = readFileSync(mdPath, "utf-8");
@@ -52,7 +35,6 @@ function getSourceWorkflows(sourceDir: string): { name: string; dir: string; des
     return [{ name: dirName, dir: sourceDir, description }];
   }
 
-  // Scan subdirectories for workflows
   if (!existsSync(sourceDir)) return [];
 
   return readdirSync(sourceDir, { withFileTypes: true })
@@ -97,28 +79,14 @@ const cli = cac("talos");
 cli.version(import.meta.env.PKG_VERSION as string);
 cli.usage("[command] [options]");
 
-cli.command("list", "列出可用的 workflows 和 agents").action(() => {
+cli.command("list", "列出可用的 workflows").action(() => {
   const workflows = getBuiltinWorkflows();
-  const agents = getBuiltinAgents();
-
-  if (workflows.length === 0 && agents.length === 0) {
-    console.log("No workflows or agents found.");
+  if (workflows.length === 0) {
+    console.log("No workflows found.");
     return;
   }
-
-  if (workflows.length > 0) {
-    console.log("Workflows:");
-    for (const wf of workflows) {
-      console.log(`  ${wf.name}${wf.description ? " — " + wf.description : ""}`);
-    }
-  }
-
-  if (agents.length > 0) {
-    if (workflows.length > 0) console.log("");
-    console.log("Agents:");
-    for (const ag of agents) {
-      console.log(`  ${ag.name}${ag.description ? " — " + ag.description : ""}`);
-    }
+  for (const wf of workflows) {
+    console.log(`  ${wf.name}${wf.description ? " — " + wf.description : ""}`);
   }
 });
 
@@ -130,7 +98,6 @@ cli
     let workflowDir: string;
 
     if (options?.source) {
-      // External source (local or git)
       let sourceDir: string;
       if (isLocalPath(options.source)) {
         sourceDir = options.source;
@@ -141,7 +108,6 @@ cli
         process.exit(1);
       }
 
-      // Scan source for workflows
       const sourceWorkflows = getSourceWorkflows(sourceDir);
       if (sourceWorkflows.length === 0) {
         console.log(`Error: no workflows found in source (missing workflow.md)`);
@@ -149,7 +115,6 @@ cli
       }
 
       if (!name) {
-        // No name specified, let user select
         if (sourceWorkflows.length === 1) {
           const wf = sourceWorkflows[0];
           workflowName = wf.name;
@@ -163,9 +128,7 @@ cli
               hint: wf.description,
             })),
           });
-          if (isCancel(selected)) {
-            process.exit(0);
-          }
+          if (isCancel(selected)) process.exit(0);
           const selectedName = selected as string;
           const wf = sourceWorkflows.find((w) => w.name === selectedName);
           if (!wf) {
@@ -176,7 +139,6 @@ cli
           workflowDir = wf.dir;
         }
       } else {
-        // Name specified, find the workflow
         const wf = sourceWorkflows.find((w) => w.name === name);
         if (!wf) {
           console.log(`Workflow "${name}" not found in source. Available: ${sourceWorkflows.map((w) => w.name).join(", ")}`);
@@ -186,7 +148,6 @@ cli
         workflowDir = wf.dir;
       }
     } else {
-      // Builtin workflow
       const workflows = getBuiltinWorkflows();
       if (workflows.length === 0) {
         console.log("No workflows found.");
@@ -202,9 +163,7 @@ cli
             hint: wf.description,
           })),
         });
-        if (isCancel(selected)) {
-          process.exit(0);
-        }
+        if (isCancel(selected)) process.exit(0);
         workflowName = selected as string;
       } else {
         const workflow = workflows.find((w) => w.name === name);
@@ -231,7 +190,4 @@ cli
   });
 
 cli.help();
-const parsed = cli.parse();
-if (!parsed.matchedCommand) {
-  cli.outputHelp();
-}
+cli.parse();
