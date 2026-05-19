@@ -1,141 +1,134 @@
 # Talos
 
-管理 AI coding workflow 的 CLI 工具。
+运行在 Claude Code 内的 AI coding workflow 编排器。
 
-## 安装
+## Quick Start
 
 ```bash
 npm install -g talos-cli
+talos install issue2code
 ```
+
+然后在 Claude Code 中运行 `/workflow issue2code` 开始使用。
+
+### 内置 Workflows
+
+| 名称 | 用途 |
+|------|------|
+| `issue2code` | 从需求到代码的完整流程：同步 issue → PRD → 拆分 → 实现 → 审查 → E2E 验证 |
+| `debug` | 缺陷诊断与修复：理解缺陷 → 调试循环 → 审查 |
+
+安装后，在 Claude Code 中运行 `/workflow <name>` 即可启动。
+
+## 架构
+
+### Talos vs 传统 Workflow 平台
+
+传统 workflow 平台（如 Dify）采用确定性编排：每个节点是一个明确的函数调用，输入输出由 JSON Schema 定义，流程严格执行预定义路径。
+
+Talos 采用不同的设计哲学：
+
+- **LLM 自主编排** — 每个 stage 不是确定性的函数，而是委托给 LLM agent。LLM 可以根据上下文自主决策执行策略（选择哪个 skill、如何处理异常、是否跳过某些步骤）
+- **Markdown 定义流程** — workflow 用自然语言描述阶段和规则，不定义严格的输入输出 schema。维护成本极低
+- **运行在 coding agent 内** — 不是独立平台，而是安装到项目的 `.claude/` 目录，和用户的代码、工具链、MCP server 共存
+- **通过 subagent 隔离上下文** — 每个 agent 在独立的上下文中运行，避免 token 膨胀
+
+对应的 trade-off：Talos 依赖 Claude Code 作为 runtime（没有独立 runtime），流程执行不如传统平台精确可控。但如果你认为 LLM 足够聪明能自主做出合理判断，这种自主性反而可能比硬编码的编排更灵活、更准确。
+
+### Workflow 结构图
+
+```
+用户项目/
+├── .claude/
+│   ├── agents/              # 安装的 agent 定义
+│   │   ├── executor.md
+│   │   ├── debugger.md
+│   │   └── ...
+│   └── skills/              # 安装的 skill（builtin + registry）
+│       ├── workflow/
+│       ├── tdd/
+│       └── ...
+├── .workflows/
+│   └── issue2code/
+│       └── workflow.md      # workflow 编排定义
+└── wiki/                    # 项目知识库（记忆层）
+```
+
+### 核心概念
+
+**Agent** — 可复用的执行单元，定义了角色、输入输出、执行流程和依赖。builtin agents 在 talos 包的 `agents/` 目录维护，workflow 通过路径引用。
+
+**Workflow** — 由 `workflow.md` 定义的阶段编排。每个 stage 可以委托给 agent、加载 skill、或由协调者自行处理。stage 编号从 1 开始。
+
+**Manifest** — `manifest.json` 声明 workflow 的所有依赖：
+
+```json
+{
+  "memorize": true,
+  "agents": ["agents/executor", "./agents/custom"],
+  "skills": [{ "name": "tdd", "source": "mattpocock/skills" }],
+  "mcp": [{ "name": "my-server", "command": "npx", "args": ["pkg"] }],
+  "plugins": ["figma@claude-plugins-official"]
+}
+```
+
+- `agents`：`agents/xx` 引用 builtin，`./agents/xx` 引用 workflow-local
+- `skills`：从 [skills.sh](https://skills.sh) registry 下载
+- `mcp`：内联配置对象，或路径引用（`./mcp/config.json`）
+- `memorize`：workflow 完成后是否写记忆（默认 true）
+
+**记忆** — workflow skill 的内建行为，不需要在 workflow.md 中定义 stage：
+- 执行前自动读取三层记忆（用户偏好、项目热记忆、知识库）
+- 执行后自动沉淀知识（`memorize: false` 时只读不写）
 
 ## 命令
 
 ### `talos list`
 
-列出可用的 builtin workflows 和 agents。
-
-```bash
-talos list
-```
-
-输出示例：
-```
-Workflows:
-  debug — Debug Pipeline
-  issue2code — Issue2Code
-
-Agents:
-  debugger — 诊断并修复缺陷。
-  executor — 实现新功能的代码。
-  memorizer — 将知识沉淀到三层记忆。
-  reviewer — 审查代码变更是否符合验收标准。
-  tester — 端到端验证。
-  tracker — 从 GitHub 同步 issues 到本地。
-```
+列出可用的 builtin workflows。
 
 ### `talos install [name]`
 
 安装 workflow 到当前目录。
 
 ```bash
-# 交互选择并安装
-talos install
-
-# 安装指定的 builtin workflow
-talos install issue2code
+talos install              # 交互选择
+talos install issue2code   # 安装指定 workflow
 ```
 
-安装过程会：
-1. 同步 agents 到 `.claude/agents/`
-2. 安装 skills 到 `.claude/skills/`
-3. 配置 MCP servers 和 plugins
-4. 复制 workflow.md 到 `.workflows/<name>/`
+### `talos install --source <url> [name]`
 
-安装完成后，在 Claude Code 中运行 `/workflow <name>` 开始使用。
-
-### `talos install --source <source> [name]`
-
-从外部源安装 workflow（本地路径或 git repo）。
+从外部 git repo 安装 workflow。
 
 ```bash
-# 从本地目录安装（交互选择）
-talos install --source /path/to/workflow
-
-# 从本地目录安装指定 workflow
-talos install my-flow --source /path/to/workflow
-
-# 从 git repo 安装
 talos install --source https://github.com/org/workflows.git
 ```
 
 ### `talos graph`
 
-启动 web dashboard 查看会话执行图。
+启动 web dashboard 查看会话执行图。默认端口 3456，可通过 `--port` 指定。
 
-```bash
-talos graph
+## 扩展
+
+### 创建自定义 Workflow
+
+在 Claude Code 中运行 `/workflow-creator` skill，交互式引导创建新的 workflow。
+
+### 外部 Workflow Repo
+
+维护一个独立的 git repo，通过 `talos install --source <url>` 安装。repo 结构：
+
+```
+your-repo/
+└── workflows/
+    └── <workflow-name>/
+        ├── workflow.md       # 必需：编排定义
+        ├── manifest.json     # 必需：依赖声明
+        └── agents/           # 可选：workflow-local agents
+            └── custom.md
 ```
 
-默认端口 3456，可通过 `--port` 指定。
-
-## 架构
-
-```
-talos/                          (package root)
-├── agents/                     # Builtin 共享 agent 库
-│   ├── debugger.md
-│   ├── executor.md
-│   ├── memorizer.md
-│   ├── reviewer.md
-│   ├── tester.md
-│   └── tracker.md
-├── workflows/
-│   ├── debug/
-│   │   ├── workflow.md         # 编排定义
-│   │   └── manifest.json       # 配置：agents/skills/mcp/plugins 依赖 + memorize 配置
-│   └── issue2code/
-│       ├── workflow.md
-│       └── manifest.json
-├── skills/
-│   ├── workflow/               # Workflow runner skill
-│   │   ├── SKILL.md
-│   │   └── memorize.md         # 记忆读写协议
-│   └── workflow-creator/       # Workflow 创建引导 skill
-```
-
-### Agent
-
-可复用的执行单元，定义在 `agents/` 目录。Workflow 通过 `manifest.json` 路径引用：
-- `agents/xx` — 引用 builtin agent
-- `./agents/xx` — 引用 workflow-local agent
-
-### manifest.json
-
-每个 workflow 的配置清单：
-
-```json
-{
-  "memorize": true,
-  "agents": ["agents/executor", "agents/reviewer"],
-  "skills": [{ "name": "tdd", "source": "mattpocock/skills" }],
-  "mcp": [{ "name": "server", "command": "npx", "args": ["pkg"] }],
-  "plugins": ["plugin:figma:figma"]
-}
-```
-
-- `memorize`：workflow 完成后是否写记忆（默认 true，false 则只读不写）
-- `agents`：路径引用，builtin 或 local
-- `skills`：从 skills.sh registry 下载
-- `mcp`：内联配置或路径引用
-- `plugins`：plugin ref 字符串
-
-### 记忆
-
-Workflow skill 内建行为，不需要在 workflow.md 中定义 stage：
-- **执行前**：自动读取三层记忆（用户偏好、项目热记忆、知识库）
-- **执行后**：如果 `memorize !== false`，自动委托 memorizer agent 沉淀知识
-
-## 开发
+## 开发 & 发布
 
 ```bash
 npm install
@@ -143,10 +136,10 @@ npx tsx src/cli.ts list
 npx tsx src/cli.ts install issue2code
 ```
 
-## 发布
+发布新版本：
 
 ```bash
-npm version patch   # 或 minor/major
+npm version patch   # 或 minor / major
 git push --follow-tags
 ```
 
