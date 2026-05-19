@@ -1,6 +1,6 @@
 # Talos
 
-运行在 Claude Code 内的 AI coding workflow 编排器。
+AI coding agent 的 workflow harness。通过自然语言编排文件约束 agent 的运行方式，让 agent 协作工程化、可维护。
 
 ## Quick Start
 
@@ -26,16 +26,16 @@ talos install issue2code
 
 传统 workflow 平台（如 Dify）采用确定性编排：每个节点是一个明确的函数调用，流程严格执行预定义路径。
 
-Talos 采用不同的设计哲学：
+Talos 是 coding agent 的 harness。通过自然语言编排文件（workflow.md）约束 agent 如何运行，而非硬编码每个步骤。Agent 在 harness 内受约束地执行，但保留自主判断的空间：
 
-- **LLM 自主选择** — 每个 Stage 中，LLM 从候选 Agent 中自主选择最合适的来执行。同一个 workflow 在不同场景下可能走出不同路径
-- **Stage 推进** — Agent 完成后返回结果，协调者推进到下一个 Stage，再次自主选择
-- **Subagent 上下文隔离** — 每个 Agent 在独立上下文中运行，避免 token 膨胀
+- **自然语言编排** — workflow.md 定义阶段和规则，agent 在每个 Stage 自主选择执行策略。同一个 workflow 在不同场景下可能走出不同路径
+- **Stage 推进** — Agent 完成后返回结果，harness 推进到下一个 Stage
+- **上下文隔离** — 每个 Agent 在独立的 subagent 上下文中运行，避免 token 膨胀
 - **记忆自进化** — 执行前读取记忆注入上下文，执行后沉淀新知识。越用越聪明
 
 ### 核心概念
 
-**Stage** — workflow 的执行阶段。每个 Stage 由 LLM 协调者自主决定执行方式：委托给 Agent、加载 Skill、或自行处理。
+**Stage** — workflow 的执行阶段。每个 Stage 由 harness 协调，agent 自主决定执行方式：委托给 Agent、加载 Skill、或自行处理。
 
 **Agent** — 可复用的执行单元（如 executor、debugger、reviewer、tester），在独立的 subagent 上下文中运行。
 
