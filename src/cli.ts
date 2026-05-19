@@ -1,5 +1,6 @@
 import { readdirSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { cac } from "cac";
 import { select, isCancel } from "@clack/prompts";
 import matter from "gray-matter";
@@ -94,7 +95,8 @@ async function resolveSourceWithFallbacks(url: string): Promise<string> {
 
 const cli = cac("talos");
 
-cli.version("0.1.0");
+const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8"));
+cli.version(pkg.version);
 cli.usage("[command] [options]");
 
 cli.command("list", "列出可用的 workflows 和 agents").action(() => {
