@@ -24,7 +24,7 @@ export function syncRepo(url: string, ref: string | undefined, cachePath: string
   }
 
   const refArg = ref ? ["--branch", ref] : [];
-  const args = ["clone", "--depth", "1", ...refArg, url, cachePath];
+  const args = ["git", "clone", "--depth", "1", ...refArg, url, cachePath];
   execSync(args.join(" "), { stdio: "pipe" });
 }
 
