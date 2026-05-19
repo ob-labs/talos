@@ -24,25 +24,18 @@ function getBuiltinWorkflows(): { name: string; description: string }[] {
     });
 }
 
-// Scan a directory for workflows (either single workflow or multiple subdirectories)
+// Scan sourceDir/workflows/ for workflow directories
 function getSourceWorkflows(sourceDir: string): { name: string; dir: string; description: string }[] {
-  const mdPath = join(sourceDir, "workflow.md");
-  if (existsSync(mdPath)) {
-    const raw = readFileSync(mdPath, "utf-8");
-    const match = raw.match(/^#\s+(.+)$/m);
-    const description = match ? match[1] : "";
-    const dirName = sourceDir.split("/").filter(Boolean).pop() || "workflow";
-    return [{ name: dirName, dir: sourceDir, description }];
-  }
+  const workflowsDir = join(sourceDir, "workflows");
+  if (!existsSync(workflowsDir)) return [];
 
-  if (!existsSync(sourceDir)) return [];
-
-  return readdirSync(sourceDir, { withFileTypes: true })
+  return readdirSync(workflowsDir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((entry) => {
-      const workflowDir = join(sourceDir, entry.name);
+      const workflowDir = join(workflowsDir, entry.name);
       const mdPath = join(workflowDir, "workflow.md");
-      if (!existsSync(mdPath)) return null;
+      const manifestPath = join(workflowDir, "manifest.json");
+      if (!existsSync(mdPath) || !existsSync(manifestPath)) return null;
       const raw = readFileSync(mdPath, "utf-8");
       const match = raw.match(/^#\s+(.+)$/m);
       const description = match ? match[1] : "";
