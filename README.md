@@ -96,8 +96,6 @@ talos install issue2code   # 安装指定 workflow
 
 ### `talos install --source <url> [name]`
 
-从外部 git repo 安装 workflow。
-
 ```bash
 talos install --source https://github.com/org/workflows.git
 ```
@@ -114,7 +112,7 @@ talos install --source https://github.com/org/workflows.git
 
 ### 外部 Workflow Repo
 
-维护一个独立的 git repo，通过 `talos install --source <url>` 安装。repo 结构：
+repo 结构要求：
 
 ```
 your-repo/
