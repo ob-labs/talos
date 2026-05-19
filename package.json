@@ -1,41 +1,32 @@
 {
   "name": "talos",
-  "version": "0.0.1",
-  "private": true,
-  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CLI tool for managing AI coding workflows",
+  "bin": {
+    "talos": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "workflows/",
+    "skills/"
+  ],
   "scripts": {
-    "dev": "concurrently -n \"packages,web\" -c \"cyan.dim,green.bold\" --prefix \"[{name}]\" --prefix-length 10 \"pnpm run dev:packages\" \"pnpm run dev:web\"",
-    "dev:packages": "pnpm --filter './packages/**' --parallel exec npm run dev",
-    "dev:web": "pnpm --filter './apps/web' run dev",
-    "build": "turbo run build",
-    "start": "cd apps/web && NODE_ENV=production tsx server.ts",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "typecheck:watch": "tsc --build --watch",
-    "test": "vitest run",
-    "test:watch": "vitest watch",
-    "test:cli": "vitest run --config=vitest.cli.config.ts",
-    "test:all": "vitest run && pnpm run test:cli",
-    "test:ui": "cd apps/web && vitest --ui",
-    "clean": "turbo run clean && rm -rf node_modules .turbo packages/*/dist",
-    "cli:build": "cd packages/cli && pnpm run build",
-    "cli:link": "pnpm run cli:build && pnpm link --global && cd packages/cli && pnpm link --global",
-    "cli:unlink": "pnpm remove --global talos-cli talos",
-    "publish": "pnpm run cli:build && cd packages/cli && pnpm publish --access public",
-    "test:stream": "node test-prd-stream.mjs"
+    "build": "node build.mjs",
+    "prepublishOnly": "npm run build",
+    "dev:list": "tsx src/cli.ts list",
+    "dev:install": "tsx src/cli.ts install",
+    "dev:graph": "tsx src/cli.ts graph"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.4.0",
+    "cac": "^7.0.0",
+    "gray-matter": "^4.0.3"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.3",
-    "@types/node": "^22.10.5",
-    "autoprefixer": "^10.4.20",
-    "concurrently": "^9.2.1",
-    "eslint": "^9.17.0",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "tsup": "^8.4.0",
-    "tsx": "^4.21.0",
-    "turbo": "^2.8.12",
-    "typescript": "^5.7.2",
-    "vitest": "^3.2.4"
+    "@types/node": "^22.19.19",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.9.3"
   }
 }
