@@ -129,6 +129,20 @@ your-repo/
 talos install --source https://github.com/org/workflows.git
 ```
 
+## 记忆自进化
+
+Workflow 每次执行后，memorizer agent 会自动分析任务过程，将有价值的知识沉淀到三层记忆（灵感来自 [Karpathy 的 LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)）：
+
+| 层级 | 位置 | 内容 | 大小限制 |
+|------|------|------|----------|
+| 用户偏好 | `~/.talos/profile.md` | 跨项目的编码风格、协作习惯 | ≤50 行 |
+| 项目热记忆 | `wiki/hot.md` | 影响后续工作的关键约束、踩过的坑 | ≤100 行 |
+| 项目知识库 | `wiki/<category>/<name>.md` | 领域知识、可复用模式、技术选型记录 | 无限制 |
+
+知识使用越多，记忆越丰富——agent 在后续执行中会读取这些记忆，避免重复踩坑。
+
+> **可选增强**：知识库使用 Obsidian markdown 格式，安装 [Obsidian](https://obsidian.md) 并将项目作为 Vault 打开，可获得图谱导航、反向链接等增强体验。
+
 ## 开发 & 发布
 
 ```bash
