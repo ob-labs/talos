@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, cpSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, cpSync, rmSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
+import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
 import matter from "gray-matter";
 import { PACKAGE_DIR } from "./paths.js";
@@ -50,7 +51,35 @@ function installAgent(target: string, ref: string, workflowDir: string) {
   console.log(`  synced agent: ${ref} → ${fileName}`);
 }
 
+function isGitSource(source: string): boolean {
+  return source.includes("://") || source.startsWith("git@");
+}
+
 async function installSkill(target: string, entry: SkillEntry) {
+  if (isGitSource(entry.source)) {
+    await installSkillFromGit(target, entry);
+  } else {
+    await installSkillFromRegistry(target, entry);
+  }
+}
+
+async function installSkillFromGit(target: string, entry: SkillEntry) {
+  const tmp = join(tmpdir(), `talos-skill-${Date.now()}`);
+  try {
+    execSync(`git clone --depth 1 ${entry.source} ${tmp}`, { stdio: "pipe" });
+    const srcDir = join(tmp, "skills", entry.name);
+    if (!existsSync(srcDir)) throw new Error(`skills/${entry.name} not found in repo`);
+    const destDir = join(target, ".claude", "skills", entry.name);
+    cpSync(srcDir, destDir, { recursive: true });
+    console.log(`  installed skill: ${entry.name} (from ${entry.source})`);
+  } catch (e) {
+    console.warn(`  WARNING: failed to install skill ${entry.name}: ${e}`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+async function installSkillFromRegistry(target: string, entry: SkillEntry) {
   const installName = entry.installName || entry.name;
   const url = `https://skills.sh/api/download/${entry.source}/${installName}`;
 
