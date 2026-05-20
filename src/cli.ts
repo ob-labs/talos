@@ -68,7 +68,10 @@ async function resolveSourceWithFallbacks(url: string): Promise<string> {
 
 const cli = cac("talos");
 
-cli.version(import.meta.env.PKG_VERSION as string);
+const version = (import.meta.env?.PKG_VERSION as string)
+  ?? JSON.parse(readFileSync(join(PACKAGE_DIR, "package.json"), "utf-8")).version;
+
+cli.version(version);
 cli.usage("[command] [options]");
 
 cli.command("list", "列出可用的 workflows").action(() => {
