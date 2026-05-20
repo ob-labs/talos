@@ -1,15 +1,30 @@
 # Talos
 
-AI coding agent 的 workflow harness。通过自然语言编排文件约束 agent 的运行方式，让 agent 协作工程化、可维护。
+Talos 是一个基于自然语言实现的 harness workflow 编排器，你只需要去描述 workflow 的步骤，借助 coding agent 提供的 subagent，你可以在一个会话完成一个长链路任务的执行。 
 
 ## Quick Start
 
+**1. 安装 CLI**
+
 ```bash
 npm install -g talos-cli
+```
+
+**2. 安装 Workflow**
+
+```bash
 talos install issue2code
 ```
 
-然后在 Claude Code 中运行 `/workflow issue2code` 开始使用。
+**3. 运行 Workflow**
+
+```bash
+claude --dangerously-skip-permissions
+# claude code：
+# /workflow issue2code https://github.com/ob-labs/talos/issues/xx
+```
+
+在 Claude Code 中输入 `/workflow` 开始使用。
 
 ### 内置 Workflows
 
@@ -58,21 +73,44 @@ talos install              # 交互选择
 talos install issue2code   # 安装指定 workflow
 ```
 
-### `talos install --source <url> [name]`
-
-```bash
-talos install --source https://github.com/org/workflows.git
-```
-
 ### `talos graph`
 
 启动 web dashboard 查看会话执行图。默认端口 3456，可通过 `--port` 指定。
 
 ## 扩展
 
+你可以在自己的仓库中维护自定义 workflow，满足日常开发需求。
+
 ### 创建自定义 Workflow
 
-在 Claude Code 中运行 `/workflow-creator` skill，交互式引导创建新的 workflow。产出 `workflow.md` + `manifest.json`：
+1. 进入你的项目仓库
+2. 安装 skill：
+
+```bash
+npx skills add qingquan/talos
+```
+
+3. 启动 Claude Code 并运行 workflow-creator：
+
+```bash
+claude --dangerously-skip-permissions
+# claude code：
+# /workflow-creator create a workflow for my daily xx
+```
+
+生成的 workflow 目录结构：
+
+```
+your-repo/
+└── workflows/
+    └── <workflow-name>/
+        ├── workflow.md       # 必需：编排定义
+        ├── manifest.json     # 必需：依赖声明
+        └── agents/           # 可选：workflow-local agents
+            └── custom.md
+```
+
+`manifest.json` 声明 workflow 的依赖：
 
 ```json
 {
@@ -89,18 +127,12 @@ talos install --source https://github.com/org/workflows.git
 - `mcp`：内联配置对象，或路径引用（`./mcp/config.json`）
 - `memorize`：workflow 完成后是否写记忆（默认 true）
 
-### 外部 Workflow Repo
+### 安装外部 Workflow
 
-repo 结构要求：
+从任意 git 仓库安装 workflow：
 
-```
-your-repo/
-└── workflows/
-    └── <workflow-name>/
-        ├── workflow.md       # 必需：编排定义
-        ├── manifest.json     # 必需：依赖声明
-        └── agents/           # 可选：workflow-local agents
-            └── custom.md
+```bash
+talos install --source https://github.com/org/workflows.git
 ```
 
 ## 开发 & 发布
@@ -117,5 +149,3 @@ npx tsx src/cli.ts install issue2code
 npm version patch   # 或 minor / major
 git push --follow-tags
 ```
-
-GitHub Actions 自动构建并发布到 npm。
