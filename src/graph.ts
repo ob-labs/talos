@@ -386,7 +386,8 @@ const STAGE_CSS = `
   border-radius:8px;overflow:hidden;position:relative;transition:border-color .2s;
 }
 .stage-card.completed{border-color:rgba(63,185,80,.3)}
-.stage-card.executing{border-color:var(--c-main);animation:stage-breathe 2s ease-in-out infinite}
+.stage-card.running{border-color:var(--c-main);animation:stage-breathe 2s ease-in-out infinite}
+.stage-card.skipped{opacity:.45;border-style:dashed;border-color:var(--dim)}
 .stage-card.pending{opacity:.45;border-style:dashed}
 
 @keyframes stage-breathe{
@@ -407,8 +408,10 @@ const STAGE_CSS = `
 .stage-status .dot{width:6px;height:6px;border-radius:50%}
 .stage-status.completed .dot{background:var(--c-mcp)}
 .stage-status.completed{color:var(--c-mcp)}
-.stage-status.executing .dot{background:var(--c-main);animation:pulse 2s infinite}
-.stage-status.executing{color:var(--c-main)}
+.stage-status.running .dot{background:var(--c-main);animation:pulse 2s infinite}
+.stage-status.running{color:var(--c-main)}
+.stage-status.skipped .dot{background:var(--dim)}
+.stage-status.skipped{color:var(--dim)}
 .stage-status.pending .dot{background:var(--dim)}
 .stage-status.pending{color:var(--dim)}
 
@@ -477,14 +480,15 @@ function renderDirectCall(node: ExecutionNode): string {
 function renderStageCard(s: StageNode, isLast: boolean): string {
   const connector = isLast ? "" : `<div class="stage-connector${s.status === "completed" ? " done" : ""}">&#8250;</div>`;
 
-  const statusLabel = s.status === "completed" ? "Completed" : s.status === "executing" ? "Executing..." : "Pending";
+  const statusLabels: Record<string, string> = { completed: "Completed", running: "Running...", skipped: "Skipped", pending: "Pending" };
+  const statusLabel = statusLabels[s.status] || s.status;
   const statusHtml = `<div class="stage-status ${s.status}"><span class="dot"></span>${statusLabel}</div>`;
 
   const hasContent = s.agents.length > 0 || s.directCalls.length > 0;
   const body = hasContent
     ? s.agents.map((a, i) => renderAgentEntry(a, s.stage * 100 + i)).join("\n")
       + s.directCalls.map(renderDirectCall).join("\n")
-    : `<div class="stage-empty">${s.status === "pending" ? "Not started" : "No calls recorded"}</div>`;
+    : `<div class="stage-empty">${s.status === "pending" || s.status === "skipped" ? "Not started" : "No calls recorded"}</div>`;
 
   return `<div class="stage-card ${s.status}">
 <div class="stage-header">
@@ -500,7 +504,7 @@ function renderStageCard(s: StageNode, isLast: boolean): string {
 
 export function generateStageHtml(stages: StageNode[], title: string, sessionId: string): string {
   const completedCount = stages.filter((s) => s.status === "completed").length;
-  const executingCount = stages.filter((s) => s.status === "executing").length;
+  const runningCount = stages.filter((s) => s.status === "running").length;
   const date = new Date().toISOString().slice(0, 10);
   const cards = stages.map((s, i) => renderStageCard(s, i === stages.length - 1)).join("\n");
 
@@ -533,7 +537,7 @@ ${STAGE_CSS}
 
 <div class="progress">
   <span><b class="done">${completedCount}</b> completed</span>
-  ${executingCount > 0 ? `<span>&middot;</span><span><b class="active">${executingCount}</b> executing</span>` : ""}
+  ${runningCount > 0 ? `<span>&middot;</span><span><b class="active">${runningCount}</b> running</span>` : ""}
   <span>&middot;</span><span>${stages.length} total</span>
 </div>
 

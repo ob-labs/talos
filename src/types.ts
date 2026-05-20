@@ -1,8 +1,10 @@
+export type StageStatus = "pending" | "skipped" | "running" | "completed";
+
 export interface Stage {
   stage: number;
   name: string;
   desc: string;
-  passes: boolean;
+  status: StageStatus;
   summary?: string;
   subagent?: string[];
   parameters?: string[];

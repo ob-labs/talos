@@ -205,15 +205,13 @@ function readStagesForSession(sessionId: string): Stage[] {
     for (const wfEntry of readdirSync(wsDir, { withFileTypes: true })) {
       if (!wfEntry.isDirectory()) continue;
       const wfDir = join(wsDir, wfEntry.name);
-      for (const runEntry of readdirSync(wfDir, { withFileTypes: true })) {
-        if (!runEntry.isDirectory()) continue;
-        const stagesPath = join(wfDir, runEntry.name, "stages.json");
-        if (!existsSync(stagesPath)) continue;
-        const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
-        const sessions: string[] = raw.sessions || [];
-        if (!sessions.includes(sessionId)) continue;
-        return Array.isArray(raw) ? raw : raw.stages;
-      }
+
+      // Directory name IS the sessionId
+      const stagesPath = join(wfDir, sessionId, "stages.json");
+      if (!existsSync(stagesPath)) continue;
+
+      const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
+      return Array.isArray(raw) ? raw : raw.stages;
     }
   } catch { /* skip */ }
 

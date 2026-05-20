@@ -14,7 +14,7 @@ export interface AgentExecution {
 export interface StageNode {
   stage: number;
   name: string;
-  status: "completed" | "executing" | "pending";
+  status: "pending" | "skipped" | "running" | "completed";
   summary?: string;
   agents: AgentExecution[];
   directCalls: ExecutionNode[];
@@ -53,28 +53,19 @@ function isDirectCall(node: ExecutionNode): boolean {
 export function correlateStages(stages: Stage[], tree: ExecutionNode): StageNode[] {
   if (stages.length === 0) return [];
 
-  const executingIdx = stages.findIndex((s) => !s.passes);
   const nodes = flattenTopLevel(tree);
   let cursor = 0;
 
   return stages.map((stage, idx) => {
-    const status: StageNode["status"] =
-      executingIdx === -1
-        ? "completed"
-        : idx < executingIdx
-          ? "completed"
-          : idx === executingIdx
-            ? "executing"
-            : "pending";
+    const status = stage.status;
 
     const hasSubagents = stage.subagent && stage.subagent.length > 0;
 
     const agents: AgentExecution[] = [];
     const directCalls: ExecutionNode[] = [];
 
-    if (status === "pending") {
-      // No execution data for pending stages
-      return { stage: stage.stage, name: stage.name, status, agents, directCalls };
+    if (status === "pending" || status === "skipped") {
+      return { stage: stage.stage, name: stage.name, status, summary: stage.summary, agents, directCalls };
     }
 
     if (hasSubagents) {

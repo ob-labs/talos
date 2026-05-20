@@ -40,25 +40,20 @@ function readWorkflowProgress(projectPath: string, sessionId: string): {
       if (!wfEntry.isDirectory()) continue;
       const wfDir = join(wsDir, wfEntry.name);
 
-      for (const runEntry of readdirSync(wfDir, { withFileTypes: true })) {
-        if (!runEntry.isDirectory()) continue;
-        const stagesPath = join(wfDir, runEntry.name, "stages.json");
-        if (!existsSync(stagesPath)) continue;
+      // Directory name IS the sessionId
+      const stagesPath = join(wfDir, sessionId, "stages.json");
+      if (!existsSync(stagesPath)) continue;
 
-        const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
-        const sessions: string[] = raw.sessions || [];
-        if (!sessions.includes(sessionId)) continue;
-
-        const stages: Stage[] = Array.isArray(raw) ? raw : raw.stages;
-        const active = stages.find((s) => !s.passes);
-        return {
-          isWorkflow: true,
-          workflowName: wfEntry.name,
-          currentStage: active?.stage ?? null,
-          stageName: active?.name ?? null,
-          stages,
-        };
-      }
+      const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
+      const stages: Stage[] = Array.isArray(raw) ? raw : raw.stages;
+      const active = stages.find((s) => s.status === "running");
+      return {
+        isWorkflow: true,
+        workflowName: wfEntry.name,
+        currentStage: active?.stage ?? null,
+        stageName: active?.name ?? null,
+        stages,
+      };
     }
   } catch { /* skip */ }
 

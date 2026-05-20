@@ -26,25 +26,23 @@ user-invocable: true
 
 读取 workflow.md，解析为 stages 数组，写入 stages.json。
 
-**写入路径**: `~/.talos/<workspace>/<workflowName>/<runId>/stages.json`
+**写入路径**: `~/.talos/<workspace>/<workflowName>/$CLAUDE_CODE_SESSION_ID/stages.json`
 
 - `<workspace>` = 当前项目目录名（`basename "$PWD"`）
-- `<runId>` = 当前时间戳，格式 `YYYYMMDDHHmmss`（如 `20260518153042`）
+- 目录名直接使用 `$CLAUDE_CODE_SESSION_ID`（即当前会话 ID），无需额外生成
 - 写入前确保目录存在
 
 stages.json 顶层结构：
 
 ```json
 {
-  "runId": "20260518153042",
   "workflowName": "default",
-  "sessions": ["$CLAUDE_CODE_SESSION_ID"],
   "stages": [
     {
       "stage": 0,
       "name": "stage 名称",
       "desc": "...",
-      "passes": false,
+      "status": "pending",
       "summary": null,
       "subagent": null
     }
@@ -52,7 +50,7 @@ stages.json 顶层结构：
 }
 ```
 
-每次更新 stages.json 时，确保当前 `$CLAUDE_CODE_SESSION_ID` 在 `sessions` 数组中。
+status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`（跳过）、`completed`（完成）。
 
 ### 2. 读记忆
 
@@ -68,12 +66,13 @@ stages.json 顶层结构：
 
 对每个 stage 按顺序执行：
 
-1. **前置检查** — 确认上一个 stage 的 `passes == true`。stage 1 跳过此检查。如果上一个 stage 未通过，不继续推进，报告当前状态让用户决定。
-2. **评估跳过** — 根据 workflow.md 中该 stage 的跳过条件（"XX时跳过"）和当前上下文判断是否跳过。如果条件明确满足，直接标记 `passes: true`，summary 写明跳过原因。如果不确定，问用户。
-3. **宣告** — 告诉用户即将执行哪个 stage 以及执行方式（委托给哪个 agent / 自行处理）。
-4. **执行** — 按宣告的方式执行该 stage。
-5. **自检** — 重新读取当前 stage 的 desc，逐条检查完成标准是否满足。不要假设执行完就等于完成——验证产出物是否存在、是否符合 desc 的要求。
-6. **更新状态** — 自检通过后，标记 `passes: true`，写入 `summary`。如果未通过，报告缺失内容，询问用户如何处理。
+1. **前置检查** — 确认上一个 stage 的 `status` 为 `completed` 或 `skipped`。stage 1 跳过此检查。如果上一个 stage 不满足，不继续推进，报告当前状态让用户决定。
+2. **设置状态** — 进入 stage 前先将 `status` 设为 `"running"`，写入 stages.json。
+3. **评估跳过** — 根据 workflow.md 中该 stage 的跳过条件（"XX时跳过"）和当前上下文判断是否跳过。如果条件明确满足，标记 `status: "skipped"`，summary 写明跳过原因。如果不确定，问用户。
+4. **宣告** — 告诉用户即将执行哪个 stage 以及执行方式（委托给哪个 agent / 自行处理）。
+5. **执行** — 按宣告的方式执行该 stage。
+6. **自检** — 重新读取当前 stage 的 desc，逐条检查完成标准是否满足。不要假设执行完就等于完成——验证产出物是否存在、是否符合 desc 的要求。
+7. **更新状态** — 自检通过后，标记 `status: "completed"`，写入 `summary`。如果未通过，报告缺失内容，询问用户如何处理。
 
 ### 4. 完成
 

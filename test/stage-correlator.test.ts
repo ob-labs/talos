@@ -25,21 +25,32 @@ describe("correlateStages", () => {
     expect(correlateStages([], tree)).toEqual([]);
   });
 
-  it("marks all stages as pending when none have passed", () => {
+  it("marks all stages as pending when all are pending", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Plan", desc: "", passes: false },
-      { stage: 1, name: "Code", desc: "", passes: false },
+      { stage: 0, name: "Plan", desc: "", status: "pending" },
+      { stage: 1, name: "Code", desc: "", status: "pending" },
     ];
     const tree = makeTree([]);
     const result = correlateStages(stages, tree);
-    expect(result[0].status).toBe("executing");
+    expect(result[0].status).toBe("pending");
     expect(result[1].status).toBe("pending");
   });
 
-  it("marks all completed when all have passed", () => {
+  it("marks first non-passed stage as running", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Plan", desc: "", passes: true },
-      { stage: 1, name: "Code", desc: "", passes: true },
+      { stage: 0, name: "Plan", desc: "", status: "completed" },
+      { stage: 1, name: "Code", desc: "", status: "running" },
+    ];
+    const tree = makeTree([]);
+    const result = correlateStages(stages, tree);
+    expect(result[0].status).toBe("completed");
+    expect(result[1].status).toBe("running");
+  });
+
+  it("marks all completed when all are completed", () => {
+    const stages: Stage[] = [
+      { stage: 0, name: "Plan", desc: "", status: "completed" },
+      { stage: 1, name: "Code", desc: "", status: "completed" },
     ];
     const tree = makeTree([]);
     const result = correlateStages(stages, tree);
@@ -47,10 +58,34 @@ describe("correlateStages", () => {
     expect(result[1].status).toBe("completed");
   });
 
+  it("passes through skipped status", () => {
+    const stages: Stage[] = [
+      { stage: 0, name: "Plan", desc: "", status: "completed" },
+      { stage: 1, name: "Review", desc: "", status: "skipped" },
+      { stage: 2, name: "Code", desc: "", status: "running" },
+    ];
+    const tree = makeTree([]);
+    const result = correlateStages(stages, tree);
+    expect(result[0].status).toBe("completed");
+    expect(result[1].status).toBe("skipped");
+    expect(result[2].status).toBe("running");
+  });
+
+  it("handles reactivated stage (completed → running)", () => {
+    const stages: Stage[] = [
+      { stage: 0, name: "Code", desc: "", status: "running" },
+      { stage: 1, name: "Review", desc: "", status: "completed" },
+    ];
+    const tree = makeTree([]);
+    const result = correlateStages(stages, tree);
+    expect(result[0].status).toBe("running");
+    expect(result[1].status).toBe("completed");
+  });
+
   it("matches agents to stages with subagent field", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Explore", desc: "", passes: true, subagent: ["Explore"] },
-      { stage: 1, name: "Code", desc: "", passes: false, subagent: ["executor"] },
+      { stage: 0, name: "Explore", desc: "", status: "completed", subagent: ["Explore"] },
+      { stage: 1, name: "Code", desc: "", status: "running", subagent: ["executor"] },
     ];
     const agent1 = makeAgent("Explore", [makeMcp("chrome", "navigate")]);
     const agent2 = makeAgent("executor", [makeSkill("tdd")]);
@@ -62,28 +97,16 @@ describe("correlateStages", () => {
     expect(result[0].agents[0].name).toBe("Explore");
     expect(result[0].agents[0].mcps).toHaveLength(1);
 
-    expect(result[1].status).toBe("executing");
+    expect(result[1].status).toBe("running");
     expect(result[1].agents).toHaveLength(1);
     expect(result[1].agents[0].name).toBe("executor");
     expect(result[1].agents[0].skills).toHaveLength(1);
   });
 
-  it("matches skill to stages with skill field", () => {
+  it("collects direct calls for stages without subagent", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Setup", desc: "", passes: true, skill: "init" },
-    ];
-    const skill = makeSkill("init");
-    const tree = makeTree([skill]);
-
-    const result = correlateStages(stages, tree);
-    expect(result[0].directCalls).toHaveLength(1);
-    expect(result[0].directCalls[0].name).toBe("init");
-  });
-
-  it("collects direct calls for stages without agent or skill", () => {
-    const stages: Stage[] = [
-      { stage: 0, name: "Generate PRD", desc: "", passes: true },
-      { stage: 1, name: "Code", desc: "", passes: false, subagent: ["executor"] },
+      { stage: 0, name: "Generate PRD", desc: "", status: "completed" },
+      { stage: 1, name: "Code", desc: "", status: "running", subagent: ["executor"] },
     ];
     const mcp1 = makeMcp("skylark", "search");
     const mcp2 = makeMcp("skylark", "create_doc");
@@ -97,7 +120,7 @@ describe("correlateStages", () => {
 
   it("handles parallel groups by flattening them", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Explore", desc: "", passes: true, subagent: ["Explore", "Plan"] },
+      { stage: 0, name: "Explore", desc: "", status: "completed", subagent: ["Explore", "Plan"] },
     ];
     const agent1 = makeAgent("Explore");
     const agent2 = makeAgent("Plan");
@@ -114,21 +137,21 @@ describe("correlateStages", () => {
 
   it("handles empty execution tree gracefully", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Plan", desc: "", passes: true, subagent: ["Explore"] },
-      { stage: 1, name: "Code", desc: "", passes: false, subagent: ["executor"] },
+      { stage: 0, name: "Plan", desc: "", status: "completed", subagent: ["Explore"] },
+      { stage: 1, name: "Code", desc: "", status: "running", subagent: ["executor"] },
     ];
     const tree = makeTree([]);
 
     const result = correlateStages(stages, tree);
     expect(result[0].agents).toHaveLength(0);
     expect(result[0].status).toBe("completed");
-    expect(result[1].status).toBe("executing");
+    expect(result[1].status).toBe("running");
   });
 
   it("does not consume nodes that belong to later stages in direct call mode", () => {
     const stages: Stage[] = [
-      { stage: 0, name: "Direct", desc: "", passes: true },
-      { stage: 1, name: "Agent", desc: "", passes: false, subagent: ["executor"] },
+      { stage: 0, name: "Direct", desc: "", status: "completed" },
+      { stage: 1, name: "Agent", desc: "", status: "running", subagent: ["executor"] },
     ];
     // An agent node should not be consumed by the direct-call stage
     const agent = makeAgent("executor");
@@ -138,5 +161,16 @@ describe("correlateStages", () => {
     const result = correlateStages(stages, tree);
     expect(result[0].directCalls).toHaveLength(1); // only the mcp
     expect(result[1].agents).toHaveLength(1); // the agent goes to stage 1
+  });
+
+  it("includes summary for skipped stages", () => {
+    const stages: Stage[] = [
+      { stage: 0, name: "Test", desc: "", status: "skipped", summary: "纯后端改动，跳过验证" },
+    ];
+    const tree = makeTree([]);
+
+    const result = correlateStages(stages, tree);
+    expect(result[0].status).toBe("skipped");
+    expect(result[0].summary).toBe("纯后端改动，跳过验证");
   });
 });
