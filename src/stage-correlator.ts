@@ -93,16 +93,6 @@ export function correlateStages(stages: Stage[], tree: ExecutionNode): StageNode
         if (consumed.length === expected.size) break;
       }
       cursor = consumed.length > 0 ? Math.max(...consumed) + 1 : cursor;
-    } else if (stage.skill) {
-      // Match a skill node by name
-      for (let i = cursor; i < nodes.length; i++) {
-        const node = nodes[i];
-        if (node.type === "skill" && node.name === stage.skill) {
-          directCalls.push(node);
-          cursor = i + 1;
-          break;
-        }
-      }
     } else {
       // Direct execution stage: collect contiguous direct-call nodes
       while (cursor < nodes.length && isDirectCall(nodes[cursor])) {

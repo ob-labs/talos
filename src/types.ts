@@ -5,7 +5,6 @@ export interface Stage {
   passes: boolean;
   summary?: string;
   subagent?: string[];
-  skill?: string;
   parameters?: string[];
 }
 

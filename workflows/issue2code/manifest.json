@@ -10,8 +10,6 @@
   "skills": [
     { "name": "tdd", "source": "mattpocock/skills" },
     { "name": "diagnose", "source": "mattpocock/skills" },
-    { "name": "to-prd", "source": "mattpocock/skills" },
-    { "name": "to-issues", "source": "mattpocock/skills" },
     { "name": "code-review", "source": "obra/superpowers", "installName": "requesting-code-review" },
     { "name": "knowledge-synthesis", "source": "anthropics/knowledge-work-plugins" },
     { "name": "obsidian-markdown", "source": "kepano/obsidian-skills" }

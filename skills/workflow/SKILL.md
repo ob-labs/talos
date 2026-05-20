@@ -18,9 +18,7 @@ user-invocable: true
 - **MUST NOT** 对项目源码使用 Edit/Write（stages.json 除外）
 - 如果发现自己在写业务代码，**立即停止**，改为调用 Agent
 
-当 stage 的 `skill` 非空时：通过 Skill 工具加载，可交互、可写工作目录。
-
-两者都为空时：自行处理。
+当 `subagent` 为空时：自行处理（对话、协调、轻量操作）。
 
 ## 生命周期
 
@@ -48,8 +46,7 @@ stages.json 顶层结构：
       "desc": "...",
       "passes": false,
       "summary": null,
-      "subagent": null,
-      "skill": null
+      "subagent": null
     }
   ]
 }
@@ -73,7 +70,7 @@ stages.json 顶层结构：
 
 1. **前置检查** — 确认上一个 stage 的 `passes == true`。stage 1 跳过此检查。如果上一个 stage 未通过，不继续推进，报告当前状态让用户决定。
 2. **评估跳过** — 根据 workflow.md 中该 stage 的跳过条件（"XX时跳过"）和当前上下文判断是否跳过。如果条件明确满足，直接标记 `passes: true`，summary 写明跳过原因。如果不确定，问用户。
-3. **宣告** — 告诉用户即将执行哪个 stage 以及执行方式（委托给哪个 agent / 加载哪个 skill / 自行处理）。
+3. **宣告** — 告诉用户即将执行哪个 stage 以及执行方式（委托给哪个 agent / 自行处理）。
 4. **执行** — 按宣告的方式执行该 stage。
 5. **自检** — 重新读取当前 stage 的 desc，逐条检查完成标准是否满足。不要假设执行完就等于完成——验证产出物是否存在、是否符合 desc 的要求。
 6. **更新状态** — 自检通过后，标记 `passes: true`，写入 `summary`。如果未通过，报告缺失内容，询问用户如何处理。
@@ -109,7 +106,6 @@ stages.json 顶层结构：
 |------|---------|
 | `desc` | 标题后的全部正文 |
 | `subagent` | 正文中 "委托 **X** agent" → `["X"]`，多个则全放入数组，没有则 `null` |
-| `skill` | 正文中 "加载 **X** skill" → `"X"`，没有则 `null` |
 | 跳过条件 | 正文中 "XX时跳过" → 保留在 desc 中，执行时由协调者参考 |
 
 ## 规则

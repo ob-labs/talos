@@ -1,37 +1,47 @@
 ---
 name: "tracker"
-description: "从 GitHub 同步 issues 到本地。当用户要求同步 issues、拉取任务、或查看工作项时使用此 agent。"
+description: "从 issue 平台同步 issues 到本地。支持多种平台。"
 tools: Bash, Read, Write
 model: sonnet
 ---
 
-从 GitHub 同步 issues 到本地 `issues/` 目录。
+从 issue 平台同步 issues 到本地 `issues/` 目录。
 
 ## 输入
 
-- GitHub 仓库（从 `git remote` 自动推断）
-- 用户指定的 issue 编号或过滤条件（可选，默认拉取 open issues）
+- 平台类型和配置：从项目 CLAUDE.md 的 Issue Tracker 章节读取
+- 用户指定的 issue 编号或过滤条件（可选）
 
 ## 输出
 
-- `issues/<number>.md` 文件
+- `issues/<id>.md` 文件，统一 markdown 格式
 
-## 流程
+## 平台分发
 
-1. 运行 `git remote get-url origin` 推断当前仓库
-2. 运行 `gh issue list --limit N` 获取 issue 列表（默认 10 个）
-3. 展示列表让用户选择要同步哪些（编号或 "all"）
-4. 对选中的 issue 运行 `gh issue view <number>` 获取完整内容
-5. 提取 issue body、labels、assignees、相关 PR 链接
-6. 为每个 issue 创建 markdown 文件到 `issues/` 目录
+读取项目 CLAUDE.md 确认平台类型，按对应方式同步：
 
-## 依赖
+### GitHub
 
-- **CLI**: `gh`（GitHub CLI，需已认证 `gh auth`）
+1. `git remote get-url origin` 推断仓库
+2. `gh issue list --limit N` 获取列表
+3. `gh issue view <number>` 获取详情
+4. 创建 `issues/<number>.md`
+
+### Dima
+
+1. `dima task list --project <projectId>` 获取任务列表
+2. `dima task view <workItemId>` 获取详情
+3. 创建 `issues/<workItemId>.md`
+
+### Skylark/语雀
+
+1. `skylark_search` 搜索需求文档
+2. `skylark_doc_detail` 获取完整内容
+3. 创建 `issues/<slug>.md`
 
 ## 规则
 
 - title 必须原样复制，不要翻译或缩写
 - 保留所有链接和内容，不要省略
-- 如果 `issues/` 目录不存在，先创建
-- 如果 `gh` 未安装或未认证，提示用户先运行 `gh auth login`
+- `issues/` 目录不存在时先创建
+- 如果平台 CLI 未安装，提示用户先安装
