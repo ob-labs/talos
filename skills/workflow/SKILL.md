@@ -67,7 +67,7 @@ status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`�
 对每个 stage 按顺序执行：
 
 1. **前置检查** — 确认上一个 stage 的 `status` 为 `completed` 或 `skipped`。stage 1 跳过此检查。如果上一个 stage 不满足，不继续推进，报告当前状态让用户决定。
-2. **设置状态** — 进入 stage 前先将该 stage 的 `status` 设为 `"running"`，写入 stages.json。**必须读取现有 stages.json，修改目标 stage 的 status 字段后整体写回**，不要手动拼接 JSON（会导致重复 key）。
+2. **设置状态** — 进入 stage 前先将该 stage 的 `status` 更新为 `"running"`，写入 stages.json。
 3. **评估跳过** — 根据 workflow.md 中该 stage 的跳过条件（"XX时跳过"）和当前上下文判断是否跳过。如果条件明确满足，标记 `status: "skipped"`，summary 写明跳过原因。如果不确定，问用户。
 4. **宣告** — 告诉用户即将执行哪个 stage 以及执行方式（委托给哪个 agent / 自行处理）。
 5. **执行** — 按宣告的方式执行该 stage。
