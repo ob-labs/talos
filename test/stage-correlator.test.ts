@@ -173,4 +173,22 @@ describe("correlateStages", () => {
     expect(result[0].status).toBe("skipped");
     expect(result[0].summary).toBe("纯后端改动，跳过验证");
   });
+
+  it("matches multiple agents with the same name in one stage", () => {
+    const stages: Stage[] = [
+      { stage: 0, name: "Implement", desc: "", status: "completed", subagent: ["executor"] },
+      { stage: 1, name: "Review", desc: "", status: "running", subagent: ["reviewer"] },
+    ];
+    const agent1 = makeAgent("executor", [], 30);
+    const agent2 = makeAgent("executor", [], 45);
+    const reviewer = makeAgent("reviewer");
+    const tree = makeTree([agent1, agent2, reviewer]);
+
+    const result = correlateStages(stages, tree);
+    expect(result[0].agents).toHaveLength(2);
+    expect(result[0].agents[0].name).toBe("executor");
+    expect(result[0].agents[1].name).toBe("executor");
+    expect(result[1].agents).toHaveLength(1);
+    expect(result[1].agents[0].name).toBe("reviewer");
+  });
 });

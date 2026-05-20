@@ -425,7 +425,8 @@ const STAGE_CSS = `
 .agent-row:hover{background:var(--surface2)}
 .agent-row .badge{font-size:7px;padding:1px 4px;border-radius:2px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;flex-shrink:0}
 .agent-row .badge.agent{background:rgba(88,166,255,.1);color:var(--c-agent)}
-.agent-row .name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.agent-row .name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.agent-row .agent-desc{color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 .agent-row .dur{color:var(--dim);font-size:10px;flex-shrink:0}
 .agent-row .expand{color:var(--dim);font-size:8px;transition:transform .15s;flex-shrink:0}
 .agent-row.expanded .expand{transform:rotate(90deg)}
@@ -455,6 +456,10 @@ function renderAgentEntry(agent: AgentExecution, idx: number): string {
   const dur = agent.duration ? `<span class="dur">${formatDuration(agent.duration)}</span>` : "";
   const expand = hasChildren ? `<span class="expand">&#9654;</span>` : "";
 
+  const descHtml = agent.description
+    ? `<span class="agent-desc" title="${esc(agent.description)}">${esc(truncate(agent.description, 40))}</span>`
+    : "";
+
   const children = hasChildren
     ? `<div class="agent-children" id="${id}">
   ${agent.skills.map((s) => `<div class="child-row"><span class="badge skill">skill</span><span class="name">${esc(s.name)}</span></div>`).join("\n")}
@@ -464,7 +469,7 @@ function renderAgentEntry(agent: AgentExecution, idx: number): string {
 
   return `<div class="agent-entry">
 <div class="agent-row${hasChildren ? " clickable" : ""}" ${hasChildren ? `onclick="toggleAgent('${id}',this)"` : ""}>
-  <span class="badge agent">agent</span><span class="name">${esc(agent.name)}</span>${dur}${expand}
+  <span class="badge agent">agent</span><span class="name">${esc(agent.name)}</span>${descHtml}${dur}${expand}
 </div>
 ${children}
 </div>`;

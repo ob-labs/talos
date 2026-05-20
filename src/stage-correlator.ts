@@ -69,19 +69,32 @@ export function correlateStages(stages: Stage[], tree: ExecutionNode): StageNode
     }
 
     if (hasSubagents) {
-      // Match agent nodes by name
+      // Match agent nodes by name — collect ALL matching agents, not just one per name
       const expected = new Set(stage.subagent!);
       const consumed: number[] = [];
 
+      // Find the boundary: first agent node that belongs to a later stage
+      let boundary = nodes.length;
       for (let i = cursor; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (node.type === "agent" || node.type === "builtin") {
+          // Check if this agent name is expected by a later stage
+          const laterStage = stages.slice(idx + 1).find(
+            (s) => s.subagent && s.subagent.includes(node.name)
+          );
+          if (laterStage && !expected.has(node.name)) {
+            boundary = i;
+            break;
+          }
+        }
+      }
+
+      for (let i = cursor; i < boundary; i++) {
         const node = nodes[i];
         if ((node.type === "agent" || node.type === "builtin") && expected.has(node.name)) {
           agents.push(toAgentExecution(node));
           consumed.push(i);
         }
-        // Stop looking once we've matched all expected agents or hit a node
-        // that belongs to a later stage
-        if (consumed.length === expected.size) break;
       }
       cursor = consumed.length > 0 ? Math.max(...consumed) + 1 : cursor;
     } else {
