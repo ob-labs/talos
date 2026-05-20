@@ -2,6 +2,7 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { esc, truncate, formatDuration } from "./utils.js";
+import type { StageNode, AgentExecution } from "./stage-correlator.js";
 
 export const CLAUDE_DIR = join(homedir(), ".claude");
 
@@ -371,6 +372,187 @@ function toggleBuiltin(){
   b.innerHTML=t.classList.contains("show-builtin")
     ?'Hide builtin agents<span class="count">${counts.builtins}</span>'
     :'Show builtin agents<span class="count">${counts.builtins}</span>';
+}
+</script>
+</body></html>`;
+}
+
+// --- Stage-Aware HTML Generation ---
+
+const STAGE_CSS = `
+.stage-layout{display:flex;gap:0;overflow-x:auto;padding:16px 0;align-items:stretch}
+.stage-card{
+  flex:0 0 220px;display:flex;flex-direction:column;border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;position:relative;transition:border-color .2s;
+}
+.stage-card.completed{border-color:rgba(63,185,80,.3)}
+.stage-card.executing{border-color:var(--c-main);animation:stage-breathe 2s ease-in-out infinite}
+.stage-card.pending{opacity:.45;border-style:dashed}
+
+@keyframes stage-breathe{
+  0%,100%{border-color:var(--c-main);box-shadow:0 0 0 0 rgba(240,136,62,0)}
+  50%{border-color:var(--c-main);box-shadow:0 0 12px 2px rgba(240,136,62,.15)}
+}
+
+.stage-connector{
+  flex:0 0 32px;display:flex;align-items:center;justify-content:center;
+  color:var(--border);font-size:16px;
+}
+.stage-connector.done{color:var(--c-mcp)}
+
+.stage-header{padding:12px 14px;border-bottom:1px solid var(--border)}
+.stage-header .stage-num{font-size:9px;color:var(--dim);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
+.stage-header .stage-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage-status{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:500;margin-top:4px}
+.stage-status .dot{width:6px;height:6px;border-radius:50%}
+.stage-status.completed .dot{background:var(--c-mcp)}
+.stage-status.completed{color:var(--c-mcp)}
+.stage-status.executing .dot{background:var(--c-main);animation:pulse 2s infinite}
+.stage-status.executing{color:var(--c-main)}
+.stage-status.pending .dot{background:var(--dim)}
+.stage-status.pending{color:var(--dim)}
+
+.stage-body{padding:10px 14px;flex:1;overflow-y:auto;font-size:11px}
+
+.agent-entry{margin-bottom:8px}
+.agent-row{
+  display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;
+  border-radius:3px;
+}
+.agent-row:hover{background:var(--surface2)}
+.agent-row .badge{font-size:7px;padding:1px 4px;border-radius:2px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;flex-shrink:0}
+.agent-row .badge.agent{background:rgba(88,166,255,.1);color:var(--c-agent)}
+.agent-row .name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.agent-row .dur{color:var(--dim);font-size:10px;flex-shrink:0}
+.agent-row .expand{color:var(--dim);font-size:8px;transition:transform .15s;flex-shrink:0}
+.agent-row.expanded .expand{transform:rotate(90deg)}
+
+.agent-children{display:none;padding-left:16px;border-left:1px solid var(--border);margin:2px 0 6px 4px}
+.agent-children.visible{display:block}
+.agent-children .child-row{display:flex;align-items:center;gap:4px;padding:2px 0}
+.agent-children .child-row .badge{font-size:7px;padding:1px 3px;border-radius:2px;font-weight:600;letter-spacing:.2px;text-transform:uppercase}
+.agent-children .child-row .badge.skill{background:rgba(210,168,255,.1);color:var(--c-skill)}
+.agent-children .child-row .badge.mcp{background:rgba(63,185,80,.1);color:var(--c-mcp)}
+.agent-children .child-row .name{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-children .child-row .dur{color:var(--dim);font-size:9px}
+
+.direct-call{display:flex;align-items:center;gap:5px;padding:2px 0}
+.direct-call .badge{font-size:7px;padding:1px 3px;border-radius:2px;font-weight:600;letter-spacing:.2px;text-transform:uppercase}
+.direct-call .badge.skill{background:rgba(210,168,255,.1);color:var(--c-skill)}
+.direct-call .badge.mcp{background:rgba(63,185,80,.1);color:var(--c-mcp)}
+.direct-call .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.direct-call .dur{color:var(--dim);font-size:9px}
+
+.stage-empty{color:var(--dim);font-size:10px;font-style:italic;padding:4px 0}
+`;
+
+function renderAgentEntry(agent: AgentExecution, idx: number): string {
+  const id = `agent-${idx}`;
+  const hasChildren = agent.skills.length > 0 || agent.mcps.length > 0;
+  const dur = agent.duration ? `<span class="dur">${formatDuration(agent.duration)}</span>` : "";
+  const expand = hasChildren ? `<span class="expand">&#9654;</span>` : "";
+
+  const children = hasChildren
+    ? `<div class="agent-children" id="${id}">
+  ${agent.skills.map((s) => `<div class="child-row"><span class="badge skill">skill</span><span class="name">${esc(s.name)}</span></div>`).join("\n")}
+  ${agent.mcps.map((m) => `<div class="child-row"><span class="badge mcp">mcp</span><span class="name">${esc(m.server ? m.server + " › " : "")}${esc(m.name)}</span></div>`).join("\n")}
+</div>`
+    : "";
+
+  return `<div class="agent-entry">
+<div class="agent-row${hasChildren ? " clickable" : ""}" ${hasChildren ? `onclick="toggleAgent('${id}',this)"` : ""}>
+  <span class="badge agent">agent</span><span class="name">${esc(agent.name)}</span>${dur}${expand}
+</div>
+${children}
+</div>`;
+}
+
+function renderDirectCall(node: ExecutionNode): string {
+  const badge = node.type === "skill" ? "skill" : "mcp";
+  const label = node.type === "mcp" && node.server ? `${node.server} › ${node.name}` : node.name;
+  const dur = node.duration ? `<span class="dur">${formatDuration(node.duration)}</span>` : "";
+  return `<div class="direct-call"><span class="badge ${badge}">${badge}</span><span class="name">${esc(label)}</span>${dur}</div>`;
+}
+
+function renderStageCard(s: StageNode, isLast: boolean): string {
+  const connector = isLast ? "" : `<div class="stage-connector${s.status === "completed" ? " done" : ""}">&#8250;</div>`;
+
+  const statusLabel = s.status === "completed" ? "Completed" : s.status === "executing" ? "Executing..." : "Pending";
+  const statusHtml = `<div class="stage-status ${s.status}"><span class="dot"></span>${statusLabel}</div>`;
+
+  const hasContent = s.agents.length > 0 || s.directCalls.length > 0;
+  const body = hasContent
+    ? s.agents.map((a, i) => renderAgentEntry(a, s.stage * 100 + i)).join("\n")
+      + s.directCalls.map(renderDirectCall).join("\n")
+    : `<div class="stage-empty">${s.status === "pending" ? "Not started" : "No calls recorded"}</div>`;
+
+  return `<div class="stage-card ${s.status}">
+<div class="stage-header">
+  <div class="stage-num">Stage ${s.stage}</div>
+  <div class="stage-title">${esc(s.name)}</div>
+  ${statusHtml}
+</div>
+<div class="stage-body">
+  ${body}
+</div>
+</div>${connector}`;
+}
+
+export function generateStageHtml(stages: StageNode[], title: string, sessionId: string): string {
+  const completedCount = stages.filter((s) => s.status === "completed").length;
+  const executingCount = stages.filter((s) => s.status === "executing").length;
+  const date = new Date().toISOString().slice(0, 10);
+  const cards = stages.map((s, i) => renderStageCard(s, i === stages.length - 1)).join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<title>Talos Workflow - ${esc(title)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;
+  --text:#e6edf3;--dim:#8b949e;
+  --c-main:#f0883e;--c-agent:#58a6ff;--c-skill:#d2a8ff;--c-mcp:#3fb950;
+}
+body{font-family:'SF Mono',Menlo,Consolas,monospace;background:var(--bg);color:var(--text);padding:36px 24px;line-height:1.5}
+.wrap{max-width:100%;margin:0 auto}
+h1{font-size:18px;font-weight:600;margin-bottom:3px}
+.sub{color:var(--dim);font-size:11px;margin-bottom:4px}
+.tag{display:inline-block;background:rgba(240,136,62,.12);color:var(--c-main);font-size:9px;padding:2px 7px;border-radius:3px;margin-bottom:16px;font-weight:500}
+.progress{display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:11px;color:var(--dim)}
+.progress b.done{color:var(--c-mcp)}.progress b.active{color:var(--c-main)}
+.legend{display:flex;gap:16px;font-size:10px;color:var(--dim);margin-bottom:16px}
+.legend i{display:inline-block;width:6px;height:6px;border-radius:2px;margin-right:3px;vertical-align:middle}
+${STAGE_CSS}
+</style></head>
+<body><div class="wrap">
+
+<h1>Talos Workflow : ${esc(title)}</h1>
+<p class="sub">session ${esc(sessionId.slice(0, 8))} &mdash; ${date}</p>
+<div class="tag">STAGE VIEW</div>
+
+<div class="progress">
+  <span><b class="done">${completedCount}</b> completed</span>
+  ${executingCount > 0 ? `<span>&middot;</span><span><b class="active">${executingCount}</b> executing</span>` : ""}
+  <span>&middot;</span><span>${stages.length} total</span>
+</div>
+
+<div class="legend">
+  <span><i style="background:var(--c-agent)"></i>Agent</span>
+  <span><i style="background:var(--c-skill)"></i>Skill</span>
+  <span><i style="background:var(--c-mcp)"></i>MCP</span>
+</div>
+
+<div class="stage-layout">
+${cards}
+</div>
+
+</div>
+<script>
+function toggleAgent(id, row) {
+  var el = document.getElementById(id);
+  el.classList.toggle('visible');
+  row.classList.toggle('expanded');
 }
 </script>
 </body></html>`;

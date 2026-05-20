@@ -3,6 +3,7 @@ export interface Stage {
   name: string;
   desc: string;
   passes: boolean;
+  summary?: string;
   subagent?: string[];
   skill?: string;
   parameters?: string[];

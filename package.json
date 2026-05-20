@@ -21,7 +21,8 @@
     "prepublishOnly": "npm run build",
     "dev:list": "tsx src/cli.ts list",
     "dev:install": "tsx src/cli.ts install",
-    "dev:graph": "tsx src/cli.ts graph"
+    "dev:graph": "tsx src/cli.ts graph",
+    "test": "vitest run"
   },
   "dependencies": {
     "@clack/prompts": "^1.4.0",
@@ -32,6 +33,7 @@
     "@types/node": "^22.19.19",
     "esbuild": "^0.28.0",
     "tsx": "^4.19.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.6"
   }
 }

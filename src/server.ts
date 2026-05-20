@@ -3,10 +3,12 @@ import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { Socket } from "node:net";
 import { discoverAllSessions, DiscoveredSession } from "./session-store.js";
-import { CLAUDE_DIR } from "./graph.js";
-import { findSessionFile, parseSessionTranscript, enrichWithSubagents, generateHtml, getSessionTitle } from "./graph.js";
-import { readFileSync, existsSync } from "node:fs";
+import { CLAUDE_DIR, findSessionFile, parseSessionTranscript, enrichWithSubagents, generateHtml, generateStageHtml, getSessionTitle } from "./graph.js";
+import { correlateStages } from "./stage-correlator.js";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { workspaceDir } from "./paths.js";
 import { esc, truncate } from "./utils.js";
+import type { Stage } from "./types.js";
 
 function relativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -160,7 +162,14 @@ function renderSessionGraphPage(sessionId: string): string | null {
   enrichWithSubagents(tree, join(found.projectDir, sessionId), resultMap);
 
   const title = getSessionTitle(sessionId);
-  const html = generateHtml(tree, title, sessionId);
+
+  // Check if this session has workflow stages
+  const stages = readStagesForSession(sessionId);
+  const isWorkflow = stages.length > 0;
+
+  const html = isWorkflow
+    ? generateStageHtml(correlateStages(stages, tree), title, sessionId)
+    : generateHtml(tree, title, sessionId);
 
   // Inject back navigation
   const navBar = `<div style="padding:8px 24px;background:var(--surface);border-bottom:1px solid var(--border);margin:-36px -24px 20px;display:flex;align-items:center;gap:12px">
@@ -169,6 +178,46 @@ function renderSessionGraphPage(sessionId: string): string | null {
 </div>`;
 
   return html.replace('<div class="wrap">', navBar + '\n<div class="wrap">');
+}
+
+function readStagesForSession(sessionId: string): Stage[] {
+  const historyPath = join(CLAUDE_DIR, "history.jsonl");
+  if (!existsSync(historyPath)) return [];
+
+  const lines = readFileSync(historyPath, "utf-8").split("\n");
+  let projectPath = "";
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line);
+      if (entry.sessionId === sessionId && entry.project) {
+        projectPath = entry.project;
+      }
+    } catch { /* skip */ }
+  }
+  if (!projectPath) return [];
+
+  // Reuse the same logic as session-store
+  const wsDir = workspaceDir(projectPath);
+  if (!existsSync(wsDir)) return [];
+
+  try {
+    for (const wfEntry of readdirSync(wsDir, { withFileTypes: true })) {
+      if (!wfEntry.isDirectory()) continue;
+      const wfDir = join(wsDir, wfEntry.name);
+      for (const runEntry of readdirSync(wfDir, { withFileTypes: true })) {
+        if (!runEntry.isDirectory()) continue;
+        const stagesPath = join(wfDir, runEntry.name, "stages.json");
+        if (!existsSync(stagesPath)) continue;
+        const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
+        const sessions: string[] = raw.sessions || [];
+        if (!sessions.includes(sessionId)) continue;
+        return Array.isArray(raw) ? raw : raw.stages;
+      }
+    }
+  } catch { /* skip */ }
+
+  return [];
 }
 
 // --- Resume handler ---
