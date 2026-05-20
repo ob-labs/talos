@@ -54,13 +54,65 @@ export function correlateStages(stages: Stage[], tree: ExecutionNode): StageNode
   if (stages.length === 0) return [];
 
   const nodes = flattenTopLevel(tree);
-  let cursor = 0;
 
+  // Build subagent lookup: agentName -> list of stage indices that expect it
+  const agentToStages = new Map<string, number[]>();
+  for (let i = 0; i < stages.length; i++) {
+    if (stages[i].subagent) {
+      for (const name of stages[i].subagent!) {
+        if (!agentToStages.has(name)) agentToStages.set(name, []);
+        agentToStages.get(name)!.push(i);
+      }
+    }
+  }
+
+  // Pass 1: assign each agent/builtin node to a stage index
+  // For each node, assign it to the last stage (by index) that expects this agent name
+  // and is at or before the current "frontier" for that agent's stages
+  const nodeStageAssignments = new Map<number, number>(); // nodeIndex -> stageIndex
+  const agentFrontiers = new Map<string, number>(); // agentName -> next unassigned stage index
+
+  for (let ni = 0; ni < nodes.length; ni++) {
+    const node = nodes[ni];
+    if (node.type !== "agent" && node.type !== "builtin") continue;
+
+    const stageList = agentToStages.get(node.name);
+    if (!stageList || stageList.length === 0) continue;
+
+    // Get current frontier for this agent name
+    let frontier = agentFrontiers.get(node.name) || 0;
+
+    // Advance frontier to the next stage that expects this agent
+    // We assign to the stage at frontier, then increment
+    if (frontier < stageList.length) {
+      nodeStageAssignments.set(ni, stageList[frontier]);
+      agentFrontiers.set(node.name, frontier + 1);
+    } else {
+      // All expected stages filled; assign to the last one (overflow)
+      nodeStageAssignments.set(ni, stageList[stageList.length - 1]);
+    }
+  }
+
+  // Pass 2: assign non-agent nodes (direct calls) to the nearest preceding stage
+  // that doesn't have subagents
+  const directCallAssignments = new Map<number, number>();
+
+  // Find last agent-assigned node index before each direct-call node
+  let lastAssignedStageIdx = 0;
+  for (let ni = 0; ni < nodes.length; ni++) {
+    const node = nodes[ni];
+    if (nodeStageAssignments.has(ni)) {
+      lastAssignedStageIdx = nodeStageAssignments.get(ni)!;
+      continue;
+    }
+    if (isDirectCall(node)) {
+      directCallAssignments.set(ni, lastAssignedStageIdx);
+    }
+  }
+
+  // Pass 3: build stage results
   return stages.map((stage, idx) => {
     const status = stage.status;
-
-    const hasSubagents = stage.subagent && stage.subagent.length > 0;
-
     const agents: AgentExecution[] = [];
     const directCalls: ExecutionNode[] = [];
 
@@ -68,47 +120,19 @@ export function correlateStages(stages: Stage[], tree: ExecutionNode): StageNode
       return { stage: stage.stage, name: stage.name, status, summary: stage.summary, agents, directCalls };
     }
 
-    if (hasSubagents) {
-      // Match agent nodes by name — collect ALL matching agents, not just one per name
-      const expected = new Set(stage.subagent!);
-      const consumed: number[] = [];
-
-      // Find the boundary: first agent node that belongs to a later stage
-      let boundary = nodes.length;
-      for (let i = cursor; i < nodes.length; i++) {
-        const node = nodes[i];
-        if (node.type === "agent" || node.type === "builtin") {
-          // Check if this agent name is expected by a later stage
-          const laterStage = stages.slice(idx + 1).find(
-            (s) => s.subagent && s.subagent.includes(node.name)
-          );
-          if (laterStage && !expected.has(node.name)) {
-            boundary = i;
-            break;
-          }
-        }
+    // Collect agents assigned to this stage
+    for (const [ni, si] of nodeStageAssignments) {
+      if (si === idx) {
+        agents.push(toAgentExecution(nodes[ni]));
       }
+    }
 
-      for (let i = cursor; i < boundary; i++) {
-        const node = nodes[i];
-        if ((node.type === "agent" || node.type === "builtin") && expected.has(node.name)) {
-          agents.push(toAgentExecution(node));
-          consumed.push(i);
+    // Collect direct calls assigned to this stage
+    if (!stage.subagent || stage.subagent.length === 0) {
+      for (const [ni, si] of directCallAssignments) {
+        if (si === idx) {
+          directCalls.push(nodes[ni]);
         }
-      }
-      cursor = consumed.length > 0 ? Math.max(...consumed) + 1 : cursor;
-    } else {
-      // Direct execution stage: collect contiguous direct-call nodes
-      while (cursor < nodes.length && isDirectCall(nodes[cursor])) {
-        // Stop if this node looks like it belongs to a later stage
-        // (heuristic: if a later stage expects this agent, don't consume it)
-        const laterAgentStage = stages.slice(idx + 1).find(
-          (s) => s.subagent && (s.subagent.includes(nodes[cursor].name))
-        );
-        if (laterAgentStage) break;
-
-        directCalls.push(nodes[cursor]);
-        cursor++;
       }
     }
 
