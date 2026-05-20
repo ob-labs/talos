@@ -1,6 +1,6 @@
 # Workflow Coding 生命周期
 
-一个完整的从需求到交付的闭环，分为三个阶段：**准备**（人 + Agent 协作）、**执行**（Talos 黑盒自动化）、**收尾**（人 + Agent 协作）。
+一个完整的从需求到交付的闭环，分为两个阶段：**准备**（交互式）和**执行**（Talos 自动化）。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -11,12 +11,7 @@
 ├─────────────────────────────────────────────────────────────┤
 │  执行阶段（Talos 自动化，每个 stage 是独立 subagent）         │
 │                                                             │
-│  同步 Issue → 实现 → 代码审查 → E2E 验证                     │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│  收尾阶段（交互式）                                          │
-│                                                             │
-│  代码提交 → 创建 PR → 关闭 Issue                            │
+│  同步 Issue → 实现 → 审查 → 验证 → 提交 → 沉淀               │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -50,8 +45,8 @@ gh issue create --title "PRD标题" --body "PRD全文" --label "ready-for-agent"
 以 `/workflow issue2code` 为例。Talos 接管后，每个 stage 委托给独立的 subagent 黑盒执行：
 
 ```
-tracker → executor → reviewer → tester → memorizer
- 同步      实现       审查       验证      沉淀
+tracker → executor → reviewer → tester → memorizer → submitter
+ 同步      实现       审查       验证      沉淀        提交
 ```
 
 执行过程是全自动的：协调者按顺序推进，每个 stage 完成后自检，通过则进入下一个。如果 E2E 验证发现问题，回到实现阶段修复后重新验证。
@@ -60,35 +55,7 @@ tracker → executor → reviewer → tester → memorizer
 
 完成后 **memorizer** agent 自动将本次任务中有价值的知识写入三层记忆（`~/.talos/profile.md`、`wiki/hot.md`、`wiki/`），供后续执行复用。
 
----
-
-## 三、收尾阶段
-
-代码实现完成后，需要人工或 agent 辅助完成交付闭环。
-
-### 1. 提交代码
-
-确认代码变更符合预期后，提交到版本控制：
-
-```bash
-git add -A
-git commit -m "feat: implement xxx"
-git push origin feature-branch
-```
-
-### 2. 创建 Pull Request
-
-```bash
-gh pr create --title "feat: implement xxx" --body "PRD摘要 + 变更说明"
-```
-
-### 3. 关闭 Issue
-
-PR 合并后，关闭对应的 issue，附上 PR 链接：
-
-```bash
-gh issue close <number> --comment "Fixed in #<pr-number>"
-```
+**submitter** stage 在最后触发，需要用户确认后推进。
 
 ---
 
@@ -105,7 +72,7 @@ gh issue close <number> --comment "Fixed in #<pr-number>"
 2. 生成 PRD（含 User Stories、模块划分、测试策略）
 3. gh issue create → 推送 PRD 到 GitHub，打上 ready-for-agent label
 
-# 执行阶段（约 20-40 分钟，自动）
+# 执行阶段（约 20-40 分钟）
 
 4. /workflow issue2code
    → tracker: 从 GitHub 同步 issue 到本地
@@ -113,11 +80,5 @@ gh issue close <number> --comment "Fixed in #<pr-number>"
    → reviewer: 审查代码变更
    → tester: 在浏览器中验证分页交互
    → memorizer: 记录分页相关的项目知识
-
-# 收尾阶段（约 5 分钟）
-
-5. git commit & push
-6. gh pr create → 创建 PR 关联原始 issue
-7. Code Review 通过后合并
-8. gh issue close → 关闭 issue
+   → submitter: 确认后提交代码，在 issue 上评论变更摘要
 ```

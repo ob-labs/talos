@@ -5,7 +5,9 @@
     "agents/executor",
     "agents/debugger",
     "agents/reviewer",
-    "agents/tester"
+    "agents/tester",
+    "agents/submitter",
+    "agents/memorizer"
   ],
   "skills": [
     { "name": "tdd", "source": "mattpocock/skills" },
