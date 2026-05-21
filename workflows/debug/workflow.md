@@ -14,19 +14,11 @@
 
 改动极小（单行配置变更或样式微调）时跳过。
 
-## stage 3 — 端到端验证
-
-委托 **tester** agent，传入 bug PRD 和代码变更摘要。
-
-纯后端改动或无法在浏览器中验证时跳过。
-
-如果验证发现问题，回到 stage 1 交由 **debugger** agent 修复，修复后重新验证。
-
-## stage 4 — 沉淀
+## stage 3 — 沉淀
 
 委托 **memorizer** agent，传入所有已完成 stages 的 summary，将任务中的知识写入三层记忆。
 
-## stage 5 — 提交
+## stage 4 — 提交
 
 委托 **submitter** agent，传入 bug PRD 路径和 issue 编号。Agent 会对照 PRD 总结变更，与用户确认后 commit + push，并在 issue 上评论变更摘要。
 
