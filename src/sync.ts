@@ -180,7 +180,7 @@ const TALOS_MEMO_SECTION = `<!-- talos-memo-start -->
 2. \`wiki/hot.md\` — 项目热记忆（关键约束、重大坑、强偏好），≤100 行
 3. \`wiki/INDEX.md\` — 知识索引，按需深入 \`wiki/<category>/<name>.md\` 页面
 
-完成重要工作后（修 bug、完成功能、架构决策），委托 **memorizer** agent 将有价值的知识写入对应记忆层。只记录非显而易见的知识：架构决策、坑、可复用模式、用户偏好。
+完成重要工作后（修 bug、完成功能、架构决策），使用 \`/memorizer\` skill 将有价值的知识写入对应记忆层。只记录非显而易见的知识：架构决策、坑、可复用模式、用户偏好。
 <!-- talos-memo-end -->`;
 
 export function injectClaudeMdSection(target: string): void {
@@ -222,8 +222,6 @@ export async function sync(workflowName: string, workflowDir: string, target: st
   for (const ref of manifest.agents || []) {
     installAgent(target, ref, workflowDir);
   }
-  // Always ensure memorizer is available (workflow skill built-in dependency)
-  installAgent(target, "agents/memorizer", workflowDir);
 
   // 2. Skills
   console.log("[2/4] Installing skills...");

@@ -1,8 +1,9 @@
 ---
-name: "memorizer"
-description: "分析任务执行结果，将知识沉淀到三层记忆：用户偏好（~/.talos/profile.md）、项目热记忆（wiki/hot.md）、项目知识库（wiki/，Obsidian vault）。"
-tools: Bash, Read, Write, Edit, Skill
-model: sonnet
+name: memorizer
+description: >
+  分析任务执行结果，将知识沉淀到三层记忆。当用户提到 /memorizer、写记忆、沉淀知识、
+  或 CLAUDE.md 中指示使用时触发。
+user-invocable: true
 ---
 
 分析已完成的任务，将值得保留的知识写入对应的记忆层。

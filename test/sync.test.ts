@@ -30,6 +30,7 @@ describe("injectClaudeMdSection", () => {
     expect(content).toContain(MARKER_END);
     expect(content).toContain("~/.talos/profile.md");
     expect(content).toContain("wiki/hot.md");
+    expect(content).toContain("/memorizer");
   });
 
   it("appends to existing CLAUDE.md without markers", () => {

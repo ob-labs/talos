@@ -52,17 +52,7 @@ stages.json 顶层结构：
 
 status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`（跳过）、`completed`（完成）。
 
-### 2. 读记忆
-
-加载 `memorize.md` 中的记忆协议。在 stages 执行前，读取三层记忆注入上下文：
-
-1. `~/.talos/profile.md` — 用户偏好
-2. `wiki/hot.md` — 项目热记忆
-3. `wiki/INDEX.md` — 知识索引
-
-如果文件不存在则跳过。读取后将内容作为上下文告知用户。
-
-### 3. 执行循环
+### 2. 执行循环
 
 对每个 stage 按顺序执行：
 
@@ -74,18 +64,11 @@ status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`�
 6. **自检** — 重新读取当前 stage 的 desc，逐条检查完成标准是否满足。不要假设执行完就等于完成——验证产出物是否存在、是否符合 desc 的要求。
 7. **更新状态** — 自检通过后，标记 `status: "completed"`，写入 `summary`。如果未通过，报告缺失内容，询问用户如何处理。
 
-### 4. 完成
+### 3. 完成
 
 所有 stage 通过后：
 - 向用户报告 workflow 整体完成
 - 列出所有阶段产出的 artifacts 汇总
-
-### 5. 写记忆
-
-读取 `manifest.json` 的 `memorize` 配置：
-
-- `memorize` 未设置或为 `true` → 委托 **memorizer** agent，传入所有 stages 的 summary
-- `memorize` 为 `false` → 跳过写记忆
 
 ## 解析规则
 
