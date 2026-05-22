@@ -78,7 +78,7 @@ talos install issue2code   # 安装指定 workflow
 2. 安装 skill：
 
 ```bash
-npx skills add qingquan/talos
+npx skills add https://github.com/ob-labs/talos --skill workflow-creator
 ```
 
 3. 启动 Claude Code 并运行 workflow-creator：
