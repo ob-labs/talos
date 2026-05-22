@@ -189,10 +189,24 @@ function parseSubagentTree(sessionDir: string, agentId: string): ExecutionNode[]
 }
 
 export function enrichWithSubagents(tree: ExecutionNode, sessionDir: string, resultMap: Map<string, any>) {
+  // Fallback: build name -> agentId mapping from subagent meta files
+  const metaDir = join(sessionDir, "subagents");
+  const nameToAgentId = new Map<string, string>();
+  if (existsSync(metaDir)) {
+    for (const entry of readdirSync(metaDir)) {
+      if (!entry.endsWith(".meta.json")) continue;
+      try {
+        const meta = JSON.parse(readFileSync(join(metaDir, entry), "utf-8"));
+        const agentId = entry.replace("agent-", "").replace(".meta.json", "");
+        if (meta.agentType) nameToAgentId.set(meta.agentType, agentId);
+      } catch { /* skip */ }
+    }
+  }
+
   for (const child of tree.children) {
     if (child.type === "agent" || child.type === "builtin") {
       const result = resultMap.get(child.id);
-      const agentId = result?.toolUseResult?.agentId;
+      const agentId = result?.toolUseResult?.agentId || nameToAgentId.get(child.name);
       if (agentId) {
         child.children = parseSubagentTree(sessionDir, agentId);
       }
