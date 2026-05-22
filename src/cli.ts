@@ -180,3 +180,7 @@ cli
 
 cli.help();
 cli.parse();
+
+if (process.argv.length <= 2) {
+  cli.outputHelp();
+}
