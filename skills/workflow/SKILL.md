@@ -37,6 +37,7 @@ stages.json 顶层结构：
 ```json
 {
   "workflowName": "default",
+  "title": "简短、有意义的工作流标题",
   "stages": [
     {
       "stage": 0,
@@ -49,6 +50,8 @@ stages.json 顶层结构：
   ]
 }
 ```
+
+**title 生成规则**：理解用户意图，用一句话概括本次工作流要做什么。
 
 status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`（跳过）、`completed`（完成）。
 

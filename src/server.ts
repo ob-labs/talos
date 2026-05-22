@@ -44,13 +44,15 @@ function renderSessionList(sessions: DiscoveredSession[], filter: string, port: 
     const stageInfo = s.stageName
       ? `<span class="sep">&middot;</span><span class="stage-badge">${esc(s.stageName)}</span>`
       : "";
+    const lastInput = s.display ? `<div class="card-row2"><span class="last-input">${esc(truncate(s.display, 120))}</span></div>` : "";
     return `<a class="card" href="/session/${s.sessionId}">
   <div class="card-row1">
     ${statusDot}
-    <span class="prompt">${esc(truncate(s.display, 80))}</span>
+    <span class="prompt">${esc(truncate(s.title || "", 80))}</span>
     <span class="arrow">&rsaquo;</span>
   </div>
-  <div class="card-row2">
+  ${lastInput}
+  <div class="card-row3">
     <span class="sid">${esc(s.sessionId.slice(0, 8))}</span>
     <span class="sep">&middot;</span>
     <span class="project">${esc(s.projectName)}</span>${workflowTag}${stageInfo}
@@ -93,7 +95,9 @@ body{font-family:'SF Mono',Menlo,Consolas,monospace;background:var(--bg);color:v
 .card{display:block;text-decoration:none;color:var(--text);padding:10px 14px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;transition:background .1s,border-color .15s}
 .card:hover{background:var(--surface2);border-color:rgba(88,166,255,.3)}
 .card-row1{display:flex;align-items:center;gap:8px}
-.card-row2{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px}
+.card-row2{margin-top:2px;font-size:11px}
+.last-input{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-row3{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dot.active{background:var(--c-mcp);animation:pulse 2s infinite}
 .dot.idle{background:var(--border)}
@@ -161,11 +165,10 @@ function renderSessionGraphPage(sessionId: string): string | null {
   const { tree, resultMap } = parseSessionTranscript(found.jsonlPath);
   enrichWithSubagents(tree, join(found.projectDir, sessionId), resultMap);
 
-  const title = getSessionTitle(sessionId);
-
   // Check if this session has workflow stages
-  const stages = readStagesForSession(sessionId);
+  const { stages, title: stageTitle } = readStagesForSession(sessionId);
   const isWorkflow = stages.length > 0;
+  const title = isWorkflow ? (stageTitle || "") : getSessionTitle(sessionId);
 
   const html = isWorkflow
     ? generateStageHtml(correlateStages(stages, tree), title, sessionId)
@@ -180,9 +183,9 @@ function renderSessionGraphPage(sessionId: string): string | null {
   return html.replace('<div class="wrap">', navBar + '\n<div class="wrap">');
 }
 
-function readStagesForSession(sessionId: string): Stage[] {
+function readStagesForSession(sessionId: string): { stages: Stage[]; title: string | null } {
   const historyPath = join(CLAUDE_DIR, "history.jsonl");
-  if (!existsSync(historyPath)) return [];
+  if (!existsSync(historyPath)) return { stages: [], title: null };
 
   const lines = readFileSync(historyPath, "utf-8").split("\n");
   let projectPath = "";
@@ -195,11 +198,11 @@ function readStagesForSession(sessionId: string): Stage[] {
       }
     } catch { /* skip */ }
   }
-  if (!projectPath) return [];
+  if (!projectPath) return { stages: [], title: null };
 
   // Reuse the same logic as session-store
   const wsDir = workspaceDir(projectPath);
-  if (!existsSync(wsDir)) return [];
+  if (!existsSync(wsDir)) return { stages: [], title: null };
 
   try {
     for (const wfEntry of readdirSync(wsDir, { withFileTypes: true })) {
@@ -211,11 +214,12 @@ function readStagesForSession(sessionId: string): Stage[] {
       if (!existsSync(stagesPath)) continue;
 
       const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
-      return Array.isArray(raw) ? raw : raw.stages;
+      const stages: Stage[] = Array.isArray(raw) ? raw : raw.stages;
+      return { stages, title: raw.title || null };
     }
   } catch { /* skip */ }
 
-  return [];
+  return { stages: [], title: null };
 }
 
 // --- Resume handler ---

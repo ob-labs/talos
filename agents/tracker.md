@@ -47,6 +47,15 @@ model: sonnet
 2. `skylark_doc_detail` 获取完整内容
 3. 创建 `issues/<name>.md`
 
+## 更新工作流标题
+
+同步 issue 后，如果当前运行在 workflow 上下文中（可通过环境变量 `$CLAUDE_CODE_SESSION_ID` 和 `~/.talos/` 目录确认），更新 stages.json 的 `title` 字段：
+
+1. 找到 `~/.talos/<workspace>/<workflowName>/$CLAUDE_CODE_SESSION_ID/stages.json`
+2. 读取并解析 JSON
+3. 用 issue 的实际标题更新 `title` 字段（去掉平台前缀标签，如 `[Bug]`、`[Feature]`）
+4. 写回文件（保持其他字段不变）
+
 ## 规则
 
 - title 必须原样复制，不要翻译或缩写

@@ -10,6 +10,13 @@ export interface Stage {
   parameters?: string[];
 }
 
+export interface StagesFile {
+  workflowName: string;
+  title?: string;
+  stages: Stage[];
+  [key: string]: unknown;
+}
+
 export interface SkillEntry {
   name: string;
   source: string;

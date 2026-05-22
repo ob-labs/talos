@@ -17,6 +17,7 @@ export interface DiscoveredSession {
   workflowName: string | null;
   currentStage: number | null;
   stageName: string | null;
+  title: string | null;
   stages: Stage[];
 }
 
@@ -29,10 +30,11 @@ function readWorkflowProgress(projectPath: string, sessionId: string): {
   workflowName: string | null;
   currentStage: number | null;
   stageName: string | null;
+  title: string | null;
   stages: Stage[];
 } {
   const wsDir = workspaceDir(projectPath);
-  const empty = { isWorkflow: false, workflowName: null, currentStage: null, stageName: null, stages: [] as Stage[] };
+  const empty = { isWorkflow: false, workflowName: null, currentStage: null, stageName: null, title: null, stages: [] as Stage[] };
   if (!existsSync(wsDir)) return empty;
 
   try {
@@ -52,6 +54,7 @@ function readWorkflowProgress(projectPath: string, sessionId: string): {
         workflowName: wfEntry.name,
         currentStage: active?.stage ?? null,
         stageName: active?.name ?? null,
+        title: raw.title || null,
         stages,
       };
     }
