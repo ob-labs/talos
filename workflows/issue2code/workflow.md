@@ -10,22 +10,26 @@
 
 用户已提供 issue 或本地已有 `issues/` 时跳过。
 
-## stage 2 — 实现
+## stage 2 — 需求拆分
+
+委托 **splitissues** agent，传入 PRD 路径。Agent 加载 `to-issues` skill，将大型 PRD 拆分为可独立执行的 sub-issues。
+
+issue 为 bug/缺陷类型，或 PRD 足够简单（单一功能、改动明确）时跳过。
+
+## stage 3 — 实现
 
 根据任务类型选择 agent：
 
 - 新功能 / 增强 → 委托 **executor** agent，传入 PRD 路径和相关代码位置
 - Bug / 回归 / 缺陷 → 委托 **debugger** agent，传入缺陷描述和相关代码位置
 
-## stage 3 — 代码审查
+如果存在 sub-issues，按依赖顺序逐个执行，每个 sub-issue 独立委托 executor。
+
+## stage 4 — 代码审查
 
 委托 **reviewer** agent，传入 PRD（含验收标准）和代码变更摘要。
 
 改动极小（typo、配置）时跳过。
-
-## stage 4 — 沉淀
-
-委托 **memorizer** agent，传入所有已完成 stages 的 summary，将任务中的知识写入三层记忆。
 
 ## stage 5 — 提交
 

@@ -2,14 +2,15 @@
   "memorize": true,
   "agents": [
     "agents/tracker",
+    "agents/splitissues",
     "agents/executor",
     "agents/debugger",
     "agents/reviewer",
     "agents/tester",
-    "agents/submitter",
-    "agents/memorizer"
+    "agents/submitter"
   ],
   "skills": [
+    { "name": "to-issues", "source": "mattpocock/skills" },
     { "name": "tdd", "source": "mattpocock/skills" },
     { "name": "diagnose", "source": "mattpocock/skills" },
     { "name": "code-review", "source": "obra/superpowers", "installName": "requesting-code-review" },
