@@ -25,6 +25,20 @@ function projectToDir(projectPath: string): string {
   return projectPath.replace(/\//g, "-");
 }
 
+function parseStages(stagesPath: string, workflowName: string | null) {
+  const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
+  const stages: Stage[] = Array.isArray(raw) ? raw : raw.stages;
+  const active = stages.find((s) => s.status === "running");
+  return {
+    isWorkflow: true,
+    workflowName,
+    currentStage: active?.stage ?? null,
+    stageName: active?.name ?? null,
+    title: raw.title || null,
+    stages,
+  };
+}
+
 function readWorkflowProgress(projectPath: string, sessionId: string): {
   isWorkflow: boolean;
   workflowName: string | null;
@@ -38,25 +52,18 @@ function readWorkflowProgress(projectPath: string, sessionId: string): {
   if (!existsSync(wsDir)) return empty;
 
   try {
+    // Case 1: stages.json directly under project dir: ~/.talos/<project>/<session-id>/stages.json
+    const directPath = join(wsDir, sessionId, "stages.json");
+    if (existsSync(directPath)) {
+      return parseStages(directPath, null);
+    }
+
+    // Case 2: stages.json under workflow dir: ~/.talos/<project>/<workflow>/<session-id>/stages.json
     for (const wfEntry of readdirSync(wsDir, { withFileTypes: true })) {
       if (!wfEntry.isDirectory()) continue;
-      const wfDir = join(wsDir, wfEntry.name);
-
-      // Directory name IS the sessionId
-      const stagesPath = join(wfDir, sessionId, "stages.json");
+      const stagesPath = join(wsDir, wfEntry.name, sessionId, "stages.json");
       if (!existsSync(stagesPath)) continue;
-
-      const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
-      const stages: Stage[] = Array.isArray(raw) ? raw : raw.stages;
-      const active = stages.find((s) => s.status === "running");
-      return {
-        isWorkflow: true,
-        workflowName: wfEntry.name,
-        currentStage: active?.stage ?? null,
-        stageName: active?.name ?? null,
-        title: raw.title || null,
-        stages,
-      };
+      return parseStages(stagesPath, wfEntry.name);
     }
   } catch { /* skip */ }
 
