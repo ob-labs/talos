@@ -45,7 +45,7 @@ stages.json 顶层结构：
       "desc": "...",
       "status": "pending",
       "summary": null,
-      "subagent": null
+      "subagent": ["agent-name"]  // 正文中 "委托 **X** agent" → ["X"]，没有则 null
     }
   ]
 }
@@ -63,7 +63,7 @@ status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`�
 2. **设置状态** — 进入 stage 前先将该 stage 的 `status` 更新为 `"running"`，写入 stages.json。
 3. **评估跳过** — 根据 workflow.md 中该 stage 的跳过条件（"XX时跳过"）和当前上下文判断是否跳过。如果条件明确满足，标记 `status: "skipped"`，summary 写明跳过原因。如果不确定，问用户。
 4. **宣告** — 告诉用户即将执行哪个 stage 以及执行方式（委托给哪个 agent / 自行处理）。
-5. **执行** — 按宣告的方式执行该 stage。通过 Agent 工具委托时，prompt 中始终要求 subagent 先加载 memo skill。
+5. **执行** — 按宣告的方式执行该 stage。通过 Agent 工具委托时，prompt 中始终要求 subagent 先加载 memorizer skill。
 6. **自检** — 重新读取当前 stage 的 desc，逐条检查完成标准是否满足。不要假设执行完就等于完成——验证产出物是否存在、是否符合 desc 的要求。
 7. **更新状态** — 自检通过后，标记 `status: "completed"`，写入 `summary`。如果未通过，报告缺失内容，询问用户如何处理。
 
@@ -72,26 +72,6 @@ status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`�
 所有 stage 通过后：
 - 向用户报告 workflow 整体完成
 - 列出所有阶段产出的 artifacts 汇总
-
-## 解析规则
-
-从 workflow.md 提取 stages 时遵循以下约定。
-
-**Stage 标题格式**（精确匹配）：
-
-```
-## stage N — name
-```
-
-从中提取 `stage`（序号）和 `name`。
-
-**字段提取**：
-
-| 字段 | 提取方式 |
-|------|---------|
-| `desc` | 标题后的全部正文 |
-| `subagent` | 正文中 "委托 **X** agent" → `["X"]`，多个则全放入数组，没有则 `null` |
-| 跳过条件 | 正文中 "XX时跳过" → 保留在 desc 中，执行时由协调者参考 |
 
 ## Memo
 
