@@ -1,6 +1,6 @@
 {
   "name": "talos-cli",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "type": "module",
   "description": "CLI tool for managing AI coding workflows",
   "repository": {
