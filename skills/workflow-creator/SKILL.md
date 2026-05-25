@@ -18,16 +18,16 @@ user-invocable: true
 | 层 | 文件 | 职责 |
 |---|---|---|
 | **编排** | `workflow.md` | 定义 stages 和协调规则 |
-| **配置** | `manifest.json` | 声明依赖（agents、skills、mcp、plugins）和配置（memorize） |
+| **配置** | `manifest.json` | 声明依赖（agents、skills、mcp、plugins） |
 | **代理** | `agents/*.md`（root） | 可复用的 builtin agent 库，workflow 通过路径引用 |
-| **记忆** | `skills/workflow/memorize.md` | 记忆读写协议，workflow skill 内建行为 |
+| **记忆** | memorizer skill | 协调者在委托 subagent 时引导加载 |
 
 **解耦原则**：
 
 1. `workflow.md` 只引用 agent 名（`委托 **X** agent`），不嵌入 agent 逻辑
 2. Agent 不硬编码 skill 内容，只引用 skill 名（`加载 **X** skill`）
 3. `manifest.json` 是唯一的配置来源——依赖和配置都在此声明
-4. 记忆是 workflow skill 的内建行为，不需要在 workflow.md 中定义 stage
+4. 记忆写入由 workflow 协调者在委托 subagent 时通过 prompt 引导，不需要在 workflow.md 中定义 stage
 5. 每个依赖只在一处声明
 
 ## 交互流程
@@ -116,7 +116,6 @@ Stage 3: 代码审查 [agent: reviewer]
 
 ```json
 {
-  "memorize": true,
   "agents": [
     "agents/<builtin-agent-name>",
     "./agents/<local-agent-name>"
@@ -139,7 +138,6 @@ Stage 3: 代码审查 [agent: reviewer]
 ```
 
 字段说明：
-- `memorize`: 是否在 workflow 完成后写记忆。默认 `true`。设为 `false` 只读不写
 - `agents`: 路径引用。`agents/xx` 引用 builtin（root agents/），`./agents/xx` 引用 workflow-local
 - `skills`: 从 skills.sh registry 下载
 - `mcp`: 内联配置对象，或路径引用（`./mcp/config.json`）
@@ -222,7 +220,6 @@ Web 缺陷诊断与修复流程。
 
 ```json
 {
-  "memorize": true,
   "agents": [
     "agents/debugger",
     "agents/reviewer"

@@ -14,11 +14,7 @@
 
 改动极小（单行配置变更或样式微调）时跳过。
 
-## stage 3 — 沉淀
-
-委托 **memorizer** agent，传入所有已完成 stages 的 summary，将任务中的知识写入三层记忆。
-
-## stage 4 — 提交
+## stage 3 — 提交
 
 委托 **submitter** agent，传入 bug PRD 路径和 issue 编号。Agent 会对照 PRD 总结变更，与用户确认后 commit + push，并在 issue 上评论变更摘要。
 

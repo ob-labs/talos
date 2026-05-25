@@ -169,46 +169,6 @@ function syncBuiltinSkills(target: string) {
   }
 }
 
-// --- CLAUDE.md memo injection ---
-
-const TALOS_MEMO_SECTION = `<!-- talos-memo-start -->
-## Talos Memory
-
-三层记忆系统，在会话开始时读取，为当前任务提供上下文。不存在的文件跳过（首次运行）。
-
-1. \`~/.talos/profile.md\` — 用户偏好（编码风格、协作习惯、工具偏好），≤50 行
-2. \`wiki/hot.md\` — 项目热记忆（关键约束、重大坑、强偏好），≤100 行
-3. \`wiki/INDEX.md\` — 知识索引，按需深入 \`wiki/<category>/<name>.md\` 页面
-
-完成重要工作后（修 bug、完成功能、架构决策），使用 \`/memorizer\` skill 将有价值的知识写入对应记忆层。只记录非显而易见的知识：架构决策、坑、可复用模式、用户偏好。
-<!-- talos-memo-end -->`;
-
-export function injectClaudeMdSection(target: string): void {
-  const claudeMdPath = join(target, "CLAUDE.md");
-
-  let content = "";
-  if (existsSync(claudeMdPath)) {
-    content = readFileSync(claudeMdPath, "utf-8");
-  }
-
-  const markerRegex = /<!-- talos-memo-start -->[\s\S]*?<!-- talos-memo-end -->\n*/;
-  let newContent: string;
-
-  if (markerRegex.test(content)) {
-    newContent = content.replace(markerRegex, TALOS_MEMO_SECTION);
-  } else {
-    const separator = content.length > 0 && !content.endsWith("\n") ? "\n\n" : "\n";
-    newContent = content + separator + TALOS_MEMO_SECTION;
-  }
-
-  try {
-    writeFileSync(claudeMdPath, newContent, "utf-8");
-    console.log("  injected memo reading into CLAUDE.md");
-  } catch (e) {
-    console.warn(`  WARNING: could not write to CLAUDE.md: ${e}`);
-  }
-}
-
 // --- Main ---
 
 export async function sync(workflowName: string, workflowDir: string, target: string) {
@@ -242,7 +202,6 @@ export async function sync(workflowName: string, workflowDir: string, target: st
   console.log("[4/4] Finalizing...");
   syncWorkflowMd(target, workflowName, workflowDir);
   syncBuiltinSkills(target);
-  injectClaudeMdSection(target);
 
   console.log(`\nDone! Run /workflow ${name} in Claude Code to start.\n`);
 }

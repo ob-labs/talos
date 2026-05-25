@@ -1,11 +1,9 @@
 {
-  "memorize": true,
   "agents": [
     "agents/debugger",
     "agents/reviewer",
     "agents/tester",
-    "agents/submitter",
-    "agents/memorizer"
+    "agents/submitter"
   ],
   "skills": [
     { "name": "diagnose", "source": "mattpocock/skills" },

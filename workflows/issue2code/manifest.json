@@ -1,5 +1,4 @@
 {
-  "memorize": true,
   "agents": [
     "agents/tracker",
     "agents/splitissues",
