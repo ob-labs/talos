@@ -96,7 +96,7 @@ status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`�
 
 通过 Agent 工具委托 subagent 时，prompt 中始终包含：
 
-"使用 memorizer skill 来获取记忆的读取、写入能力。"
+"使用 memorizer skill 来获取记忆的读取、写入能力，在任务完成时，声明是否需要写入记忆。"
 
 ## 规则
 
