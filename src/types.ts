@@ -17,6 +17,18 @@ export interface StagesFile {
   [key: string]: unknown;
 }
 
+export interface WorkflowSession {
+  sessionId: string;
+  projectName: string;
+  workflowName: string;
+  title: string | null;
+  stages: Stage[];
+  currentStage: number | null;
+  stageName: string | null;
+  timestamp: number;
+  isActive: boolean;
+}
+
 export interface SkillEntry {
   name: string;
   source: string;

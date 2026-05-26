@@ -2,11 +2,10 @@ import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { Socket } from "node:net";
-import { discoverAllSessions, DiscoveredSession } from "./session-store.js";
+import { discoverAllSessions, discoverWorkflowSessions, findStagesForSession, DiscoveredSession } from "./session-store.js";
 import { CLAUDE_DIR, findSessionFile, parseSessionTranscript, enrichWithSubagents, generateHtml, generateStageHtml, getSessionTitle } from "./graph.js";
 import { correlateStages } from "./stage-correlator.js";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { workspaceDir } from "./paths.js";
+import { readFileSync, existsSync } from "node:fs";
 import { esc, truncate } from "./utils.js";
 import type { Stage } from "./types.js";
 
@@ -24,14 +23,31 @@ function relativeTime(ts: number): string {
 
 // --- Session List HTML ---
 
-function renderSessionList(sessions: DiscoveredSession[], filter: string, port: number): string {
-  const filtered = filter === "all" ? sessions : sessions.filter((s) => s.isWorkflow);
-  const workflowCount = sessions.filter((s) => s.isWorkflow).length;
-  const activeCount = filtered.filter((s) => s.isActive).length;
+interface SessionCard {
+  sessionId: string;
+  projectName: string;
+  title: string | null;
+  display: string;
+  timestamp: number;
+  isActive: boolean;
+  workflowName: string | null;
+  stageName: string | null;
+}
+
+function toCard(s: DiscoveredSession): SessionCard {
+  return {
+    sessionId: s.sessionId, projectName: s.projectName, title: s.title,
+    display: s.display, timestamp: s.timestamp, isActive: s.isActive,
+    workflowName: s.workflowName, stageName: s.stageName,
+  };
+}
+
+function renderSessionList(cards: SessionCard[], totalCount: number, filter: string, port: number): string {
+  const activeCount = cards.filter((s) => s.isActive).length;
 
   const isMac = process.platform === "darwin";
 
-  const cards = filtered.map((s) => {
+  const cardHtml = cards.map((s) => {
     const statusDot = s.isActive
       ? `<span class="dot active"></span>`
       : `<span class="dot idle"></span>`;
@@ -63,7 +79,7 @@ function renderSessionList(sessions: DiscoveredSession[], filter: string, port: 
 </a>`;
   }).join("\n");
 
-  const emptyState = filtered.length === 0
+  const emptyState = cards.length === 0
     ? `<div class="empty">No sessions found. Run <code>talos install</code> in a project to start using workflows.</div>`
     : "";
 
@@ -124,7 +140,7 @@ body{font-family:'SF Mono',Menlo,Consolas,monospace;background:var(--bg);color:v
 
 <div class="header">
   <h1>Talos Workflow Monitor <span class="port">port ${port}</span></h1>
-  <div class="meta"><b>${activeCount}</b> active &middot; ${filtered.length} sessions</div>
+  <div class="meta"><b>${activeCount}</b> active &middot; ${totalCount} sessions</div>
   <div class="tabs">
     <a class="tab ${wfActive}" href="/?filter=workflow">Workflow Sessions</a>
     <a class="tab ${allActive}" href="/?filter=all">All Sessions</a>
@@ -132,7 +148,7 @@ body{font-family:'SF Mono',Menlo,Consolas,monospace;background:var(--bg);color:v
 </div>
 
 <div class="content">
-${cards}${emptyState}
+${cardHtml}${emptyState}
 </div>
 
 <script>
@@ -166,7 +182,7 @@ function renderSessionGraphPage(sessionId: string): string | null {
   enrichWithSubagents(tree, join(found.projectDir, sessionId), resultMap);
 
   // Check if this session has workflow stages
-  const { stages, title: stageTitle } = readStagesForSession(sessionId);
+  const { stages, title: stageTitle } = findStagesForSession(sessionId);
   const isWorkflow = stages.length > 0;
   const title = isWorkflow ? (stageTitle || "") : getSessionTitle(sessionId);
 
@@ -181,45 +197,6 @@ function renderSessionGraphPage(sessionId: string): string | null {
 </div>`;
 
   return html.replace('<div class="wrap">', navBar + '\n<div class="wrap">');
-}
-
-function readStagesForSession(sessionId: string): { stages: Stage[]; title: string | null } {
-  const historyPath = join(CLAUDE_DIR, "history.jsonl");
-  if (!existsSync(historyPath)) return { stages: [], title: null };
-
-  const lines = readFileSync(historyPath, "utf-8").split("\n");
-  let projectPath = "";
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line);
-      if (entry.sessionId === sessionId && entry.project) {
-        projectPath = entry.project;
-      }
-    } catch { /* skip */ }
-  }
-  if (!projectPath) return { stages: [], title: null };
-
-  // Reuse the same logic as session-store
-  const wsDir = workspaceDir(projectPath);
-  if (!existsSync(wsDir)) return { stages: [], title: null };
-
-  try {
-    for (const wfEntry of readdirSync(wsDir, { withFileTypes: true })) {
-      if (!wfEntry.isDirectory()) continue;
-      const wfDir = join(wsDir, wfEntry.name);
-
-      // Directory name IS the sessionId
-      const stagesPath = join(wfDir, sessionId, "stages.json");
-      if (!existsSync(stagesPath)) continue;
-
-      const raw = JSON.parse(readFileSync(stagesPath, "utf-8"));
-      const stages: Stage[] = Array.isArray(raw) ? raw : raw.stages;
-      return { stages, title: raw.title || null };
-    }
-  } catch { /* skip */ }
-
-  return { stages: [], title: null };
 }
 
 // --- Resume handler ---
@@ -274,10 +251,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     // Session list
     if (url.pathname === "/" || url.pathname === "") {
       const filter = url.searchParams.get("filter") || "workflow";
-      const sessions = discoverAllSessions();
       const port = (req.socket.localPort as number) || 3456;
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(renderSessionList(sessions, filter, port));
+
+      if (filter === "all") {
+        const sessions = discoverAllSessions();
+        const cards = sessions.map(toCard);
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(renderSessionList(cards, cards.length, filter, port));
+      } else {
+        const wfSessions = discoverWorkflowSessions();
+        const cards: SessionCard[] = wfSessions.map((s) => ({
+          sessionId: s.sessionId, projectName: s.projectName, title: s.title,
+          display: "", timestamp: s.timestamp, isActive: s.isActive,
+          workflowName: s.workflowName, stageName: s.stageName,
+        }));
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(renderSessionList(cards, cards.length, filter, port));
+      }
       return;
     }
 
