@@ -40,6 +40,14 @@ stages.json 顶层结构：
   "title": "简短、有意义的工作流标题",
   "stages": [
     {
+      "stage": -1,
+      "name": "prepare 名称",
+      "desc": "...",
+      "status": "pending",
+      "summary": null,
+      "subagent": null
+    },
+    {
       "stage": 0,
       "name": "stage 名称",
       "desc": "...",
@@ -51,11 +59,22 @@ stages.json 顶层结构：
 }
 ```
 
+**可选 prepare 章节**：若 workflow.md 包含 `## prepare — <name>` 开头的章节，解析为特殊条目写入 stages 数组第一项：`{ "stage": -1, "name": "<name>", "desc": "<正文>", "status": "pending", "subagent": null }`。prepare 的 subagent 始终为空——由协调者自行处理，不做委托。不含该章节的 workflow 不生成此条目，生命周期无变化。
+
 **title 生成规则**：理解用户意图，用一句话概括本次工作流要做什么。
 
 status 枚举值：`pending`（等待）、`running`（执行中）、`skipped`（跳过）、`completed`（完成）。
 
+### 1.5 准备（仅当 prepare 条目存在时）
+
+1. 设置 prepare 的 status 为 `running`，写入 stages.json。
+2. 按 prepare 的 desc 描述，协调者自行执行环境准备（如：读取上下文、更新 stages.json 顶层字段、创建分支/worktree、切换目录等）。协调者在此阶段**只能**执行环境准备操作，不得编写业务代码。
+3. 自检：验证 desc 中声明的准备产物是否就绪。
+4. 通过后标记 status 为 `completed`，写入 summary；未通过则报告用户等待。
+
 ### 2. 执行循环
+
+仅当 stages 数组中存在 stage -1 时，执行循环应在其 status 为 `completed` 或 `skipped` 后才启动。不含 prepare 的 workflow 直接从首个编号 stage 开始。
 
 对每个 stage 按顺序执行：
 
